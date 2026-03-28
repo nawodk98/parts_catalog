@@ -4,10 +4,38 @@ const sqlite3 = require('sqlite3').verbose();
 const pdfParse = require('pdf-parse');
 const Tesseract = require('tesseract.js');
 
-// Connect to existing database
+// Connect to existing database (and create if missing)
 const dbPath = path.join(__dirname, 'parts.sqlite');
 const db = new sqlite3.Database(dbPath);
 const CATALOG_DIR = path.join(__dirname, 'catalogs');
+
+// Ensure tables exist before running (in case the server hasn't been started yet)
+function initializeDatabase() {
+    return new Promise((resolve, reject) => {
+        db.serialize(() => {
+            db.run(`CREATE TABLE IF NOT EXISTS vehicles (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                brand TEXT,
+                model TEXT,
+                submodel TEXT
+            )`);
+
+            db.run(`CREATE TABLE IF NOT EXISTS parts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                part_number TEXT UNIQUE,
+                name TEXT,
+                price REAL,
+                stock INTEGER,
+                vehicle_id INTEGER,
+                category TEXT,
+                FOREIGN KEY (vehicle_id) REFERENCES vehicles (id)
+            )`, (err) => {
+                if (err) reject(err);
+                else resolve();
+            });
+        });
+    });
+}
 
 // Ensure catalog directory exists
 if (!fs.existsSync(CATALOG_DIR)) {
@@ -43,7 +71,17 @@ async function processFile(filePath, vehicleId) {
             // If your PDF is just a scanned image, it will extract nothing. 
             // In that case, convert the PDF to JPGs first, or use an LLM extraction tool.
             const dataBuffer = fs.readFileSync(filePath);
-            const data = await pdfParse(dataBuffer);
+
+            // Handle different npm versions of pdf-parse exporting formats!
+            let parseFunc = typeof pdfParse === 'function' ? pdfParse : pdfParse.default || pdfParse.pdfParse;
+
+            // IF it is still not a function, let's log everything it has!
+            if (typeof parseFunc !== 'function') {
+                console.log("PDF-PARSE EXPORT DUMP:", typeof pdfParse, Object.keys(pdfParse));
+                if (pdfParse.default) console.log("Has default:", typeof pdfParse.default);
+            }
+
+            const data = await parseFunc(dataBuffer);
             text = data.text;
         }
         else if (ext === '.jpg' || ext === '.jpeg' || ext === '.png') {
@@ -110,6 +148,13 @@ async function startImport() {
     console.log("=========================================");
     console.log("    BATCH CATALOG IMPORT TOOL RUNNING");
     console.log("=========================================\n");
+
+    try {
+        await initializeDatabase();
+    } catch (err) {
+        console.error("Failed to initialize database tables:", err);
+        return;
+    }
 
     const files = fs.readdirSync(CATALOG_DIR).filter(file => !file.startsWith('.'));
 
