@@ -4,24 +4,25 @@
     /* Color Palette - Modern Dark/Neon Aesthetic */
     --bg-color: #0b111a;
     --card-bg: rgba(26, 36, 51, 0.6);
-    --card-border: rgba(255, 255, 255, 0.08); /* subtle white border for glass effect */
-    
+    --card-border: rgba(255, 255, 255, 0.08);
+    /* subtle white border for glass effect */
+
     --primary-text: #ffffff;
     --secondary-text: #94a3ba;
-    
+
     --accent-glow: #00d2ff;
     --accent-glow-secondary: #3a7bd5;
     --accent-primary: #0088ff;
-    
+
     --input-bg: rgba(15, 23, 42, 0.8);
     --input-focus: rgba(0, 210, 255, 0.2);
     --input-border: rgba(255, 255, 255, 0.1);
-    
+
     --transition-speed: 0.3s;
     --border-radius-lg: 16px;
     --border-radius-md: 10px;
     --border-radius-sm: 8px;
-    
+
     --font-main: 'Outfit', sans-serif;
 }
 
@@ -35,7 +36,7 @@
 
 body {
     background-color: var(--bg-color);
-    background-image: 
+    background-image:
         radial-gradient(circle at top right, rgba(0, 136, 255, 0.15), transparent 40%),
         radial-gradient(circle at bottom left, rgba(0, 210, 255, 0.1), transparent 50%);
     background-attachment: fixed;
@@ -65,7 +66,8 @@ body {
     height: 400px;
     background: linear-gradient(135deg, var(--accent-glow), var(--accent-glow-secondary));
     border-radius: 50%;
-    filter: blur(80px); /* Heavy blur for a glow effect */
+    filter: blur(80px);
+    /* Heavy blur for a glow effect */
     opacity: 0.15;
     animation: float 20s infinite ease-in-out;
 }
@@ -82,8 +84,15 @@ body {
 }
 
 @keyframes float {
-    0%, 100% { transform: translateY(0) scale(1); }
-    50% { transform: translateY(-30px) scale(1.1); }
+
+    0%,
+    100% {
+        transform: translateY(0) scale(1);
+    }
+
+    50% {
+        transform: translateY(-30px) scale(1.1);
+    }
 }
 
 /* App Container Layout */
@@ -115,8 +124,13 @@ body {
 }
 
 @keyframes rotate-gear {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .main-header h1 {
@@ -139,7 +153,7 @@ body {
     border: 1px solid var(--card-border);
     border-radius: var(--border-radius-lg);
     padding: 2.5rem;
-    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
     display: flex;
     flex-direction: column;
     gap: 2rem;
@@ -183,7 +197,7 @@ body {
     gap: 8px;
 }
 
-.toggle-switch input[type="radio"]:checked + label {
+.toggle-switch input[type="radio"]:checked+label {
     color: var(--primary-text);
 }
 
@@ -201,14 +215,15 @@ body {
     box-shadow: 0 4px 15px rgba(0, 136, 255, 0.3);
 }
 
-#tab-vehicle:checked ~ .toggle-slider {
+#tab-vehicle:checked~.toggle-slider {
     transform: translateX(100%);
 }
 
 /* Search Panels */
 .search-panels-wrapper {
     position: relative;
-    min-height: 80px; /* gives base space for panels */
+    min-height: 80px;
+    /* gives base space for panels */
 }
 
 /* Base Panel Styling */
@@ -224,8 +239,15 @@ body {
 }
 
 @keyframes fade-in {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 /* Part Number Input */
@@ -300,13 +322,15 @@ select:disabled {
     cursor: not-allowed;
 }
 
-select:not(:disabled):hover, select:not(:disabled):focus {
+select:not(:disabled):hover,
+select:not(:disabled):focus {
     border-color: var(--accent-glow);
     box-shadow: 0 0 15px var(--input-focus);
 }
 
 select option {
-    background-color: var(--bg-color); /* To prevent transparent dropdowns */
+    background-color: var(--bg-color);
+    /* To prevent transparent dropdowns */
     color: var(--primary-text);
 }
 
@@ -410,7 +434,9 @@ select option {
 }
 
 @keyframes spin {
-    to { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .loading-state {
@@ -475,11 +501,11 @@ select option {
     .dropdown-grid {
         grid-template-columns: 1fr 1fr;
     }
-    
+
     .main-header h1 {
         font-size: 2rem;
     }
-    
+
     .toggle-switch label {
         font-size: 0.9rem;
         padding: 10px 15px;
@@ -490,11 +516,12 @@ select option {
     .dropdown-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .toggle-switch label span {
-        display: none; /* Hide text, keep icons on very small screens */
+        display: none;
+        /* Hide text, keep icons on very small screens */
     }
-    
+
     .main-content {
         padding: 1.5rem;
     }
