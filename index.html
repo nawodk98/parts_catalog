@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Premium Parts Catalog</title>
+    <!-- Google Fonts for Modern Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Local CSS -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Floating Particles Background Effect -->
+        <div class="background-effects">
+            <div class="blur-blob blob-1"></div>
+            <div class="blur-blob blob-2"></div>
+        </div>
+
+        <header class="main-header">
+            <div class="header-content">
+                <i class="fa-solid fa-gears logo-icon"></i>
+                <h1>Parts <span>Catalog</span></h1>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <!-- Navigation Toggles -->
+            <div class="toggle-container">
+                <div class="toggle-switch">
+                    <input type="radio" id="tab-part" name="search-type" value="part" checked>
+                    <label for="tab-part"><i class="fa-solid fa-barcode"></i> Search by Part Number</label>
+                    
+                    <input type="radio" id="tab-vehicle" name="search-type" value="vehicle">
+                    <label for="tab-vehicle"><i class="fa-solid fa-car"></i> Search by Vehicle</label>
+                    
+                    <div class="toggle-slider"></div>
+                </div>
+            </div>
+
+            <!-- Search Area -->
+            <div class="search-panels-wrapper">
+                
+                <!-- Panel 1: Search by Part Number -->
+                <div class="search-panel active" id="panel-part">
+                    <div class="input-group">
+                        <i class="fa-solid fa-magnifying-glass input-icon"></i>
+                        <input type="text" placeholder="Enter your part number" class="premium-input" id="part-number-input">
+                    </div>
+                </div>
+
+                <!-- Panel 2: Search by Vehicle -->
+                <div class="search-panel" id="panel-vehicle">
+                    <div class="dropdown-grid">
+                        <div class="select-wrapper">
+                            <select id="vehicle-brand">
+                                <option value="" disabled selected>Brand</option>
+                                <option value="acura">Acura</option>
+                                <option value="bmw">BMW</option>
+                                <option value="chevrolet">Chevrolet</option>
+                                <option value="ford">Ford</option>
+                                <option value="honda">Honda</option>
+                                <option value="toyota">Toyota</option>
+                            </select>
+                            <i class="fa-solid fa-chevron-down dropdown-icon"></i>
+                        </div>
+                        <div class="select-wrapper">
+                            <select id="vehicle-model" disabled>
+                                <option value="" disabled selected>Model</option>
+                            </select>
+                            <i class="fa-solid fa-chevron-down dropdown-icon"></i>
+                        </div>
+                        <div class="select-wrapper">
+                            <select id="vehicle-submodel" disabled>
+                                <option value="" disabled selected>Sub Model</option>
+                            </select>
+                            <i class="fa-solid fa-chevron-down dropdown-icon"></i>
+                        </div>
+                        <div class="select-wrapper">
+                            <select id="vehicle-part" disabled>
+                                <option value="" disabled selected>Part</option>
+                            </select>
+                            <i class="fa-solid fa-chevron-down dropdown-icon"></i>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Global Find Button -->
+            <div class="action-container">
+                <button id="btn-find" class="btn-primary">
+                    <span>Find Parts</span>
+                    <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+
+            <!-- Results Display Area -->
+            <div class="results-container" id="results-area">
+                <div class="empty-state">
+                    <i class="fa-solid fa-box-open empty-icon"></i>
+                    <p>Your search results will appear here</p>
+                </div>
+                <!-- Loading state (hidden by default) -->
+                <div class="loading-state hidden">
+                    <div class="spinner"></div>
+                    <p>Searching catalog...</p>
+                </div>
+                <!-- Content state (hidden by default) -->
+                <div class="results-content hidden">
+                    <!-- Dynamic content will be injected here -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Local JS -->
+    <script src="script.js"></script>
+</body>
+</html>
