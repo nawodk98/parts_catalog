@@ -526,3 +526,31 @@ select option {
         padding: 1.5rem;
     }
 }
+
+/* Admin Link Header Button */
+.admin-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    background: rgba(0, 136, 255, 0.1);
+    border: 1px solid var(--accent-primary);
+    border-radius: var(--border-radius-sm);
+    color: var(--accent-primary);
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 0.95rem;
+    transition: all var(--transition-speed);
+    box-shadow: 0 4px 15px rgba(0, 136, 255, 0.15);
+}
+
+.admin-link:hover {
+    background: var(--accent-primary);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 136, 255, 0.3);
+}
+
+.admin-link i {
+    font-size: 1.1rem;
+}
