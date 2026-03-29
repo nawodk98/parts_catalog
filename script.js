@@ -206,21 +206,14 @@ document.addEventListener('DOMContentLoaded', () => {
             html += `<p style="color: var(--secondary-text); text-align: left;">No parts found matching your criteria. Try adjusting your search.</p>`;
         } else {
             results.forEach((item, index) => {
-                const stockStatus = item.stock <= 0
-                    ? '<span style="color: #ff4757;">Out of Stock</span>'
-                    : (item.stock < 5 ? `<span style="color: #ffa502;">Low Stock (${item.stock})</span>` : '<span style="color: #2ed573;">In Stock</span>');
-
-                const btnState = item.stock <= 0 ? 'disabled style="background: rgba(255,255,255,0.05); color: #888; cursor: not-allowed;"' : '';
-
                 html += `
                     <div class="result-item" style="animation-delay: ${index * 0.1}s">
                         <div class="result-info">
                             <h3>${item.name} (${item.part_number})</h3>
-                            <p>Category: ${item.category} • ${stockStatus}</p>
-                            <p style="margin-top: 5px; font-size: 1.1rem; color: white;">$${item.price.toFixed(2)}</p>
+                            <p>Category: ${item.category}</p>
                         </div>
-                        <button class="result-action" ${btnState}>
-                            ${item.stock <= 0 ? 'Notify Me' : 'Add to Cart'}
+                        <button class="result-action">
+                            View Details
                         </button>
                     </div>
                 `;

@@ -24,8 +24,6 @@ const db = new sqlite3.Database(dbPath, (err) => {
              id INTEGER PRIMARY KEY AUTOINCREMENT,
              part_number TEXT UNIQUE,
              name TEXT,
-             price REAL,
-             stock INTEGER,
              vehicle_id INTEGER,
              category TEXT,
              FOREIGN KEY (vehicle_id) REFERENCES vehicles (id)
@@ -55,10 +53,10 @@ app.post('/api/vehicles', (req, res) => {
 
 // Add a new part
 app.post('/api/parts', (req, res) => {
-    const { part_number, name, price, stock, category, vehicle_id } = req.body;
-    db.run(`INSERT INTO parts (part_number, name, price, stock, category, vehicle_id) 
-            VALUES (?, ?, ?, ?, ?, ?)`,
-        [part_number, name, price, stock, category, vehicle_id],
+    const { part_number, name, category, vehicle_id } = req.body;
+    db.run(`INSERT INTO parts (part_number, name, category, vehicle_id) 
+            VALUES (?, ?, ?, ?)`,
+        [part_number, name, category, vehicle_id],
         function (err) {
             if (err) return res.status(400).json({ error: err.message });
             res.status(201).json({ id: this.lastID, part_number, name });

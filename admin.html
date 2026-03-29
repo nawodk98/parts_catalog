@@ -133,16 +133,6 @@
                         <label>Category / Type (e.g., Brake Pads)</label>
                         <input type="text" id="p-category" class="premium-input" required>
                     </div>
-                    <div style="display:flex; gap: 15px;">
-                        <div class="form-group" style="flex:1">
-                            <label>Price ($)</label>
-                            <input type="number" step="0.01" id="p-price" class="premium-input" required>
-                        </div>
-                        <div class="form-group" style="flex:1">
-                            <label>Stock Quantity</label>
-                            <input type="number" id="p-stock" class="premium-input" required>
-                        </div>
-                    </div>
                     <button type="submit" class="btn-primary" style="width: 100%; justify-content: center;">Save
                         Part</button>
                     <p id="p-success" class="success-msg">Part added successfully!</p>
@@ -216,9 +206,7 @@
                 vehicle_id: document.getElementById('p-vehicle-id').value,
                 part_number: document.getElementById('p-number').value,
                 name: document.getElementById('p-name').value,
-                category: document.getElementById('p-category').value,
-                price: parseFloat(document.getElementById('p-price').value),
-                stock: parseInt(document.getElementById('p-stock').value)
+                category: document.getElementById('p-category').value
             };
 
             try {
