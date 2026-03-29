@@ -5,8 +5,6 @@ const cors = require('cors');
 const fs = require('fs');
 
 const app = express();
-const PORT = 3000;
-
 // Connect to SQLite Database
 const dbPath = path.join(__dirname, 'parts.sqlite');
 const db = new sqlite3.Database(dbPath, (err) => {
@@ -130,9 +128,18 @@ app.get('/api/parts/vehicle', (req, res) => {
 });
 
 
-app.listen(PORT, () => {
+const server = app.listen(0, () => {
+    const port = server.address().port;
+    const url = `http://localhost:${port}`;
     console.log(`\n=================================================`);
-    console.log(`🚀 API Server is running at http://localhost:${PORT}`);
-    console.log(`🛠️  Admin Dashboard accessible at http://localhost:${PORT}/admin.html`);
+    console.log(`🚀 API Server is running at ${url}`);
+    console.log(`🛠️  Admin Dashboard accessible at ${url}/admin.html`);
     console.log(`=================================================\n`);
+
+    // Automatically open the website in the default browser
+    const { exec } = require('child_process');
+    const startCmd = process.platform === 'win32' ? `start ${url}` : process.platform === 'darwin' ? `open ${url}` : `xdg-open ${url}`;
+    exec(startCmd, (err) => {
+        if (err) console.error('Failed to open browser automatically:', err.message);
+    });
 });
