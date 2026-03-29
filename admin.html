@@ -88,21 +88,30 @@
                     App</a>
             </div>
 
+            <!-- Datalists for Autocomplete -->
+            <datalist id="dl-v-brand"></datalist>
+            <datalist id="dl-v-model"></datalist>
+            <datalist id="dl-v-submodel"></datalist>
+            <datalist id="dl-p-brand"></datalist>
+            <datalist id="dl-p-name"></datalist>
+            <datalist id="dl-p-desc"></datalist>
+            <datalist id="dl-p-category"></datalist>
+
             <!-- Vehicle Form -->
             <div id="section-vehicle" class="form-section active form-wrapper">
                 <h2 style="margin-bottom: 20px; font-weight: 500;">Create Vehicle Configuration</h2>
                 <form id="vehicleForm">
                     <div class="form-group">
                         <label>Brand (e.g., Toyota)</label>
-                        <input type="text" id="v-brand" class="premium-input" required>
+                        <input type="text" id="v-brand" list="dl-v-brand" class="premium-input" required>
                     </div>
                     <div class="form-group">
                         <label>Model (e.g., Camry)</label>
-                        <input type="text" id="v-model" class="premium-input" required>
+                        <input type="text" id="v-model" list="dl-v-model" class="premium-input" required>
                     </div>
                     <div class="form-group">
                         <label>Sub Model (e.g., LE, XSE)</label>
-                        <input type="text" id="v-submodel" class="premium-input" required>
+                        <input type="text" id="v-submodel" list="dl-v-submodel" class="premium-input" required>
                     </div>
                     <button type="submit" class="btn-primary" style="width: 100%; justify-content: center;">Save
                         Vehicle</button>
@@ -130,19 +139,23 @@
                     </div>
                     <div class="form-group" id="p-oem-brand-div" style="display: none;">
                         <label>OEM Brand Name (e.g., Bosch)</label>
-                        <input type="text" id="p-brand" class="premium-input">
+                        <input type="text" id="p-brand" list="dl-p-brand" class="premium-input">
                     </div>
                     <div class="form-group">
                         <label>Part Number</label>
-                        <input type="text" id="p-number" class="premium-input" required>
+                        <input type="text" id="p-number" class="premium-input" required autofocus>
                     </div>
                     <div class="form-group">
-                        <label>Part Name / Description</label>
-                        <input type="text" id="p-name" class="premium-input" required>
+                        <label>Part Name</label>
+                        <input type="text" id="p-name" list="dl-p-name" class="premium-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Detailed Description</label>
+                        <input type="text" id="p-description" list="dl-p-desc" class="premium-input" placeholder="Additional details, features, specs...">
                     </div>
                     <div class="form-group">
                         <label>Category / Type (e.g., Brake Pads)</label>
-                        <input type="text" id="p-category" class="premium-input" required>
+                        <input type="text" id="p-category" list="dl-p-category" class="premium-input" required>
                     </div>
                     <div class="form-group" id="p-compatible-div" style="display: none;">
                         <label>Compatible Genuine Part Numbers (comma-separated)</label>
@@ -188,8 +201,10 @@
                 if (res.ok) {
                     document.getElementById('v-success').style.display = 'block';
                     document.getElementById('v-error').style.display = 'none';
-                    e.target.reset();
+                    // Do not reset full form. Only clear specific highly-variable fields if desired (like submodel).
+                    document.getElementById('v-submodel').value = '';
                     setTimeout(() => document.getElementById('v-success').style.display = 'none', 3000);
+                    loadSuggestions(); // refresh datalists
                 } else {
                     document.getElementById('v-error').textContent = (await res.json()).error;
                     document.getElementById('v-error').style.display = 'block';
@@ -198,6 +213,31 @@
                 document.getElementById('v-error').style.display = 'block';
             }
         });
+
+        // Autocomplete loader
+        async function loadSuggestions() {
+            try {
+                const res = await fetch('/api/suggestions');
+                const data = await res.json();
+                
+                const populate = (id, items) => {
+                    const dl = document.getElementById(id);
+                    if(dl) dl.innerHTML = items.map(i => `<option value="${i}">`).join('');
+                };
+
+                populate('dl-v-brand', data.vBrands);
+                populate('dl-v-model', data.vModels);
+                populate('dl-v-submodel', data.vSubmodels);
+                populate('dl-p-brand', data.pBrands);
+                populate('dl-p-name', data.pNames);
+                populate('dl-p-desc', data.pDescriptions);
+                populate('dl-p-category', data.pCategories);
+            } catch(e) {
+                console.error("Failed to load suggestions", e);
+            }
+        }
+        
+        loadSuggestions();
 
         // Load Vehicles for Part assignment
         async function loadVehicles() {
@@ -244,6 +284,7 @@
                 vehicle_id: document.getElementById('p-vehicle-id').value,
                 part_number: document.getElementById('p-number').value,
                 name: document.getElementById('p-name').value,
+                description: document.getElementById('p-description').value,
                 category: document.getElementById('p-category').value,
                 compatible_genuine_numbers: document.getElementById('p-compatible').value
             };
@@ -258,8 +299,13 @@
                 if (res.ok) {
                     document.getElementById('p-success').style.display = 'block';
                     document.getElementById('p-error').style.display = 'none';
-                    e.target.reset();
+                    // Crucial: Only clear Part Number and Compatible mappings!
+                    document.getElementById('p-number').value = '';
+                    document.getElementById('p-compatible').value = '';
+                    document.getElementById('p-number').focus();
+                    
                     setTimeout(() => document.getElementById('p-success').style.display = 'none', 3000);
+                    loadSuggestions(); // refresh datalists
                 } else {
                     document.getElementById('p-error').textContent = (await res.json()).error;
                     document.getElementById('p-error').style.display = 'block';

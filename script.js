@@ -219,6 +219,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <div style="margin-top: 5px; margin-bottom: 5px; display: flex; align-items: center;">
                                 ${badge} <span style="color: var(--secondary-text); font-size: 0.9rem;">Category: ${item.category}</span>
                             </div>
+                            ${item.description ? `<p style="color: var(--secondary-text); font-size: 0.9em; margin-top: 8px; line-height: 1.4;">${item.description}</p>` : ''}
                         </div>
                         <button class="result-action">
                             View Details

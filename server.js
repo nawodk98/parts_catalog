@@ -24,6 +24,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
              id INTEGER PRIMARY KEY AUTOINCREMENT,
              part_number TEXT UNIQUE,
              name TEXT,
+             description TEXT,
              vehicle_id INTEGER,
              category TEXT,
              part_type TEXT DEFAULT 'Genuine',
@@ -33,6 +34,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
              // Silently upgrade existing DB schema
              db.run("ALTER TABLE parts ADD COLUMN part_type TEXT DEFAULT 'Genuine'", () => {});
              db.run("ALTER TABLE parts ADD COLUMN brand TEXT", () => {});
+             db.run("ALTER TABLE parts ADD COLUMN description TEXT", () => {});
          });
 
         db.run(`CREATE TABLE IF NOT EXISTS part_compatibility (
@@ -52,6 +54,34 @@ app.use(express.static(path.join(__dirname)));
 
 // === API Routes for Adding Data (Admin) ===
 
+const { promisify } = require('util');
+
+// Get all unique autocomplete suggestions
+app.get('/api/suggestions', async (req, res) => {
+    const dbAll = promisify(db.all.bind(db));
+    try {
+        const vBrands = await dbAll("SELECT DISTINCT brand FROM vehicles WHERE brand IS NOT NULL AND brand != ''");
+        const vModels = await dbAll("SELECT DISTINCT model FROM vehicles WHERE model IS NOT NULL AND model != ''");
+        const vSubmodels = await dbAll("SELECT DISTINCT submodel FROM vehicles WHERE submodel IS NOT NULL AND submodel != ''");
+        const pBrands = await dbAll("SELECT DISTINCT brand FROM parts WHERE brand IS NOT NULL AND brand != ''");
+        const pNames = await dbAll("SELECT DISTINCT name FROM parts WHERE name IS NOT NULL AND name != ''");
+        const pDescriptions = await dbAll("SELECT DISTINCT description FROM parts WHERE description IS NOT NULL AND description != ''");
+        const pCategories = await dbAll("SELECT DISTINCT category FROM parts WHERE category IS NOT NULL AND category != ''");
+
+        res.json({
+            vBrands: vBrands.map(r => r.brand),
+            vModels: vModels.map(r => r.model),
+            vSubmodels: vSubmodels.map(r => r.submodel),
+            pBrands: pBrands.map(r => r.brand),
+            pNames: pNames.map(r => r.name),
+            pDescriptions: pDescriptions.map(r => r.description),
+            pCategories: pCategories.map(r => r.category)
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Add a new vehicle
 app.post('/api/vehicles', (req, res) => {
     const { brand, model, submodel } = req.body;
@@ -66,13 +96,13 @@ app.post('/api/vehicles', (req, res) => {
 
 // Add a new part
 app.post('/api/parts', (req, res) => {
-    const { part_type, brand, part_number, name, category, vehicle_id, compatible_genuine_numbers } = req.body;
+    const { part_type, brand, part_number, name, description, category, vehicle_id, compatible_genuine_numbers } = req.body;
     
     const vId = part_type === 'OEM' ? null : vehicle_id;
 
-    db.run(`INSERT INTO parts (part_type, brand, part_number, name, category, vehicle_id) 
-            VALUES (?, ?, ?, ?, ?, ?)`,
-        [part_type || 'Genuine', brand || null, part_number, name, category, vId],
+    db.run(`INSERT INTO parts (part_type, brand, part_number, name, description, category, vehicle_id) 
+            VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [part_type || 'Genuine', brand || null, part_number, name, description, category, vId],
         function (err) {
             if (err) return res.status(400).json({ error: err.message });
             const pId = this.lastID;
