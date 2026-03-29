@@ -122,9 +122,12 @@ export default function App() {
     
     try {
       const query = `
-          SELECT DISTINCT p.* 
+          SELECT p.*,
+                 GROUP_CONCAT(DISTINCT UPPER(v.brand) || ' ' || v.model || ' ' || v.submodel) as vehicle_fits
           FROM parts p
           LEFT JOIN part_compatibility pc ON p.id = pc.oem_part_id
+          LEFT JOIN parts gp ON pc.genuine_part_number = gp.part_number
+          LEFT JOIN vehicles v ON p.vehicle_id = v.id OR gp.vehicle_id = v.id
           WHERE p.part_number LIKE ? 
              OR p.name LIKE ?
              OR p.description LIKE ?
@@ -137,6 +140,7 @@ export default function App() {
                     OR p2.name LIKE ?
                     OR p2.description LIKE ?
              )
+          GROUP BY p.id
       `;
       const q = `%${partQuery}%`;
       const params = [q, q, q, q, q, q, q];
@@ -175,9 +179,12 @@ export default function App() {
       const vehicleId = vRes[0].id;
       
       let query = `
-          SELECT DISTINCT p.* 
+          SELECT p.*,
+                 GROUP_CONCAT(DISTINCT UPPER(v.brand) || ' ' || v.model || ' ' || v.submodel) as vehicle_fits
           FROM parts p
           LEFT JOIN part_compatibility pc ON p.id = pc.oem_part_id
+          LEFT JOIN parts gp ON pc.genuine_part_number = gp.part_number
+          LEFT JOIN vehicles v ON p.vehicle_id = v.id OR gp.vehicle_id = v.id
           WHERE (p.vehicle_id = ?) 
              OR (pc.genuine_part_number IN (SELECT part_number FROM parts WHERE vehicle_id = ?))
       `;
@@ -187,6 +194,7 @@ export default function App() {
           query += ` AND LOWER(p.category) = ?`;
           params.push(vCategory.toLowerCase());
       }
+      query += ` GROUP BY p.id`;
 
       const pRes = await executeQuery(query, params);
       setResults(pRes || []);
@@ -226,6 +234,19 @@ export default function App() {
         {item.description ? (
           <Text style={styles.descText}>{item.description}</Text>
         ) : null}
+
+        {item.vehicle_fits ? (
+          <Text style={{color: '#4facfe', fontSize: 13, marginTop: 8, fontWeight: '500'}}>✓ Fits: {item.vehicle_fits}</Text>
+        ) : null}
+
+        <TouchableOpacity style={{marginTop: 15, paddingVertical: 10, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 8, alignItems: 'center'}} onPress={() => {
+            Alert.alert(
+                "Part Details", 
+                `Name: ${item.name}\nNumber: ${item.part_number}\nCategory: ${item.category}\n\nCompatible Vehicles:\n${item.vehicle_fits || 'Universal / Unknown'}`
+            );
+        }}>
+            <Text style={{color: 'white', fontWeight: 'bold'}}>View Details</Text>
+        </TouchableOpacity>
       </View>
     );
   };
