@@ -116,10 +116,21 @@
                 <h2 style="margin-bottom: 20px; font-weight: 500;">Add New Part</h2>
                 <form id="partForm">
                     <div class="form-group">
+                        <label>Part Type</label>
+                        <select id="p-type" onchange="togglePartType()" style="width:100%" class="premium-input">
+                            <option value="Genuine">Genuine Part (Matches specific vehicle)</option>
+                            <option value="OEM">OEM / Alternative (Matches genuine parts)</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="p-vehicle-div">
                         <label>Assign to Vehicle</label>
                         <select id="p-vehicle-id" required style="width:100%">
                             <option value="">Loading vehicles...</option>
                         </select>
+                    </div>
+                    <div class="form-group" id="p-oem-brand-div" style="display: none;">
+                        <label>OEM Brand Name (e.g., Bosch)</label>
+                        <input type="text" id="p-brand" class="premium-input">
                     </div>
                     <div class="form-group">
                         <label>Part Number</label>
@@ -132,6 +143,10 @@
                     <div class="form-group">
                         <label>Category / Type (e.g., Brake Pads)</label>
                         <input type="text" id="p-category" class="premium-input" required>
+                    </div>
+                    <div class="form-group" id="p-compatible-div" style="display: none;">
+                        <label>Compatible Genuine Part Numbers (comma-separated)</label>
+                        <input type="text" id="p-compatible" class="premium-input" placeholder="e.g., TOY-1234, HON-555">
                     </div>
                     <button type="submit" class="btn-primary" style="width: 100%; justify-content: center;">Save
                         Part</button>
@@ -199,14 +214,38 @@
             }
         }
 
+        // Toggle Form Fields based on Part Type
+        function togglePartType() {
+            const type = document.getElementById('p-type').value;
+            const vehicleDiv = document.getElementById('p-vehicle-div');
+            const oemBrandDiv = document.getElementById('p-oem-brand-div');
+            const compatibleDiv = document.getElementById('p-compatible-div');
+            const vehicleSelect = document.getElementById('p-vehicle-id');
+
+            if (type === 'Genuine') {
+                vehicleDiv.style.display = 'block';
+                oemBrandDiv.style.display = 'none';
+                compatibleDiv.style.display = 'none';
+                vehicleSelect.setAttribute('required', 'true');
+            } else {
+                vehicleDiv.style.display = 'none';
+                oemBrandDiv.style.display = 'block';
+                compatibleDiv.style.display = 'block';
+                vehicleSelect.removeAttribute('required');
+            }
+        }
+
         // Add Part
         document.getElementById('partForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const data = {
+                part_type: document.getElementById('p-type').value,
+                brand: document.getElementById('p-brand').value,
                 vehicle_id: document.getElementById('p-vehicle-id').value,
                 part_number: document.getElementById('p-number').value,
                 name: document.getElementById('p-name').value,
-                category: document.getElementById('p-category').value
+                category: document.getElementById('p-category').value,
+                compatible_genuine_numbers: document.getElementById('p-compatible').value
             };
 
             try {

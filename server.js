@@ -26,7 +26,20 @@ const db = new sqlite3.Database(dbPath, (err) => {
              name TEXT,
              vehicle_id INTEGER,
              category TEXT,
+             part_type TEXT DEFAULT 'Genuine',
+             brand TEXT,
              FOREIGN KEY (vehicle_id) REFERENCES vehicles (id)
+         )`, () => {
+             // Silently upgrade existing DB schema
+             db.run("ALTER TABLE parts ADD COLUMN part_type TEXT DEFAULT 'Genuine'", () => {});
+             db.run("ALTER TABLE parts ADD COLUMN brand TEXT", () => {});
+         });
+
+        db.run(`CREATE TABLE IF NOT EXISTS part_compatibility (
+             oem_part_id INTEGER,
+             genuine_part_number TEXT,
+             FOREIGN KEY (oem_part_id) REFERENCES parts (id),
+             UNIQUE(oem_part_id, genuine_part_number)
          )`);
     }
 });
@@ -53,13 +66,30 @@ app.post('/api/vehicles', (req, res) => {
 
 // Add a new part
 app.post('/api/parts', (req, res) => {
-    const { part_number, name, category, vehicle_id } = req.body;
-    db.run(`INSERT INTO parts (part_number, name, category, vehicle_id) 
-            VALUES (?, ?, ?, ?)`,
-        [part_number, name, category, vehicle_id],
+    const { part_type, brand, part_number, name, category, vehicle_id, compatible_genuine_numbers } = req.body;
+    
+    const vId = part_type === 'OEM' ? null : vehicle_id;
+
+    db.run(`INSERT INTO parts (part_type, brand, part_number, name, category, vehicle_id) 
+            VALUES (?, ?, ?, ?, ?, ?)`,
+        [part_type || 'Genuine', brand || null, part_number, name, category, vId],
         function (err) {
             if (err) return res.status(400).json({ error: err.message });
-            res.status(201).json({ id: this.lastID, part_number, name });
+            const pId = this.lastID;
+            
+            if (part_type === 'OEM' && compatible_genuine_numbers) {
+                const genNums = compatible_genuine_numbers.split(',').map(s => s.trim()).filter(Boolean);
+                if (genNums.length > 0) {
+                    const placeholders = genNums.map(() => '(?, ?)').join(',');
+                    const values = genNums.flatMap(num => [pId, num]);
+                    db.run(`INSERT INTO part_compatibility (oem_part_id, genuine_part_number) VALUES ${placeholders}`, values, (err2) => {
+                        if (err2) console.error("Error linking part compatibility:", err2);
+                        return res.status(201).json({ id: pId, part_number, name });
+                    });
+                    return;
+                }
+            }
+            res.status(201).json({ id: pId, part_number, name });
         }
     );
 });
@@ -95,7 +125,13 @@ app.get('/api/vehicles', (req, res) => {
 // Search Parts by Part Number
 app.get('/api/parts/search', (req, res) => {
     const { q } = req.query;
-    db.all(`SELECT * FROM parts WHERE part_number LIKE ?`, [`%${q}%`], (err, rows) => {
+    const query = `
+        SELECT DISTINCT p.* 
+        FROM parts p
+        LEFT JOIN part_compatibility pc ON p.id = pc.oem_part_id
+        WHERE p.part_number LIKE ? OR pc.genuine_part_number LIKE ?
+    `;
+    db.all(query, [`%${q}%`, `%${q}%`], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(rows);
     });
@@ -105,18 +141,25 @@ app.get('/api/parts/search', (req, res) => {
 app.get('/api/parts/vehicle', (req, res) => {
     const { brand, model, submodel, category } = req.query;
 
-    // First find matching vehicles
     db.get(`SELECT id FROM vehicles WHERE brand = ? AND model = ? AND submodel = ?`,
         [brand.toLowerCase(), model, submodel],
         (err, vehicle) => {
             if (err) return res.status(500).json({ error: err.message });
-            if (!vehicle) return res.json([]); // No matching vehicle found
+            if (!vehicle) return res.json([]);
 
-            // Fetch parts matching the vehicle ID and category
-            const query = category && category !== 'All'
-                ? `SELECT * FROM parts WHERE vehicle_id = ? AND category = ?`
-                : `SELECT * FROM parts WHERE vehicle_id = ?`;
-            const params = category && category !== 'All' ? [vehicle.id, category] : [vehicle.id];
+            let query = `
+                SELECT DISTINCT p.* 
+                FROM parts p
+                LEFT JOIN part_compatibility pc ON p.id = pc.oem_part_id
+                WHERE (p.vehicle_id = ?) 
+                   OR (pc.genuine_part_number IN (SELECT part_number FROM parts WHERE vehicle_id = ?))
+            `;
+            let params = [vehicle.id, vehicle.id];
+
+            if (category && category !== 'All') {
+                query += ` AND p.category = ?`;
+                params.push(category);
+            }
 
             db.all(query, params, (err, rows) => {
                 if (err) return res.status(500).json({ error: err.message });

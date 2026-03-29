@@ -206,11 +206,19 @@ document.addEventListener('DOMContentLoaded', () => {
             html += `<p style="color: var(--secondary-text); text-align: left;">No parts found matching your criteria. Try adjusting your search.</p>`;
         } else {
             results.forEach((item, index) => {
+                const badge = item.part_type === 'OEM' 
+                    ? `<span style="background: rgba(255, 165, 2, 0.2); color: #ffa502; padding: 3px 8px; border-radius: 12px; font-size: 0.8rem; margin-right: 10px;">OEM - ${item.brand}</span>`
+                    : `<span style="background: rgba(46, 213, 115, 0.2); color: #2ed573; padding: 3px 8px; border-radius: 12px; font-size: 0.8rem; margin-right: 10px;">Genuine</span>`;
+
                 html += `
                     <div class="result-item" style="animation-delay: ${index * 0.1}s">
                         <div class="result-info">
-                            <h3>${item.name} (${item.part_number})</h3>
-                            <p>Category: ${item.category}</p>
+                            <h3 style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                                <span>${item.name} <span style="color: var(--secondary-text); font-size: 0.8em; font-weight: normal;">(${item.part_number})</span></span>
+                            </h3>
+                            <div style="margin-top: 5px; margin-bottom: 5px; display: flex; align-items: center;">
+                                ${badge} <span style="color: var(--secondary-text); font-size: 0.9rem;">Category: ${item.category}</span>
+                            </div>
                         </div>
                         <button class="result-action">
                             View Details
