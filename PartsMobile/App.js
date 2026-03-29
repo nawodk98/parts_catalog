@@ -115,15 +115,20 @@ export default function App() {
           FROM parts p
           LEFT JOIN part_compatibility pc ON p.id = pc.oem_part_id
           WHERE p.part_number LIKE ? 
+             OR p.name LIKE ?
+             OR p.description LIKE ?
              OR pc.genuine_part_number LIKE ?
              OR p.part_number IN (
                  SELECT pc2.genuine_part_number 
                  FROM part_compatibility pc2 
                  JOIN parts p2 ON pc2.oem_part_id = p2.id 
-                 WHERE p2.part_number LIKE ?
+                 WHERE p2.part_number LIKE ? 
+                    OR p2.name LIKE ?
+                    OR p2.description LIKE ?
              )
       `;
-      const params = [`%${partQuery}%`, `%${partQuery}%`, `%${partQuery}%`];
+      const q = `%${partQuery}%`;
+      const params = [q, q, q, q, q, q, q];
       const res = await executeQuery(query, params);
       setResults(res || []);
     } catch (e) {

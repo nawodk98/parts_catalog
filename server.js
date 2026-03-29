@@ -160,15 +160,20 @@ app.get('/api/parts/search', (req, res) => {
         FROM parts p
         LEFT JOIN part_compatibility pc ON p.id = pc.oem_part_id
         WHERE p.part_number LIKE ? 
+           OR p.name LIKE ?
+           OR p.description LIKE ?
            OR pc.genuine_part_number LIKE ?
            OR p.part_number IN (
                SELECT pc2.genuine_part_number 
                FROM part_compatibility pc2 
                JOIN parts p2 ON pc2.oem_part_id = p2.id 
                WHERE p2.part_number LIKE ?
+                  OR p2.name LIKE ?
+                  OR p2.description LIKE ?
            )
     `;
-    db.all(query, [`%${q}%`, `%${q}%`, `%${q}%`], (err, rows) => {
+    const searchString = `%${q}%`;
+    db.all(query, [searchString, searchString, searchString, searchString, searchString, searchString, searchString], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(rows);
     });
