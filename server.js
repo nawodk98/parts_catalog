@@ -156,9 +156,12 @@ app.get('/api/vehicles', (req, res) => {
 app.get('/api/parts/search', (req, res) => {
     const { q } = req.query;
     const query = `
-        SELECT DISTINCT p.* 
+        SELECT p.*,
+               GROUP_CONCAT(DISTINCT UPPER(v.brand) || ' ' || v.model || ' ' || v.submodel) as vehicle_fits
         FROM parts p
         LEFT JOIN part_compatibility pc ON p.id = pc.oem_part_id
+        LEFT JOIN parts gp ON pc.genuine_part_number = gp.part_number
+        LEFT JOIN vehicles v ON p.vehicle_id = v.id OR gp.vehicle_id = v.id
         WHERE p.part_number LIKE ? 
            OR p.name LIKE ?
            OR p.description LIKE ?
@@ -171,6 +174,7 @@ app.get('/api/parts/search', (req, res) => {
                   OR p2.name LIKE ?
                   OR p2.description LIKE ?
            )
+        GROUP BY p.id
     `;
     const searchString = `%${q}%`;
     db.all(query, [searchString, searchString, searchString, searchString, searchString, searchString, searchString], (err, rows) => {
@@ -190,9 +194,12 @@ app.get('/api/parts/vehicle', (req, res) => {
             if (!vehicle) return res.json([]);
 
             let query = `
-                SELECT DISTINCT p.* 
+                SELECT p.*,
+                       GROUP_CONCAT(DISTINCT UPPER(v.brand) || ' ' || v.model || ' ' || v.submodel) as vehicle_fits
                 FROM parts p
                 LEFT JOIN part_compatibility pc ON p.id = pc.oem_part_id
+                LEFT JOIN parts gp ON pc.genuine_part_number = gp.part_number
+                LEFT JOIN vehicles v ON p.vehicle_id = v.id OR gp.vehicle_id = v.id
                 WHERE (p.vehicle_id = ?) 
                    OR (pc.genuine_part_number IN (SELECT part_number FROM parts WHERE vehicle_id = ?))
             `;
@@ -202,6 +209,7 @@ app.get('/api/parts/vehicle', (req, res) => {
                 query += ` AND p.category = ?`;
                 params.push(category);
             }
+            query += ` GROUP BY p.id`;
 
             db.all(query, params, (err, rows) => {
                 if (err) return res.status(500).json({ error: err.message });

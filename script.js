@@ -220,8 +220,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                 ${badge} <span style="color: var(--secondary-text); font-size: 0.9rem;">Category: ${item.category}</span>
                             </div>
                             ${item.description ? `<p style="color: var(--secondary-text); font-size: 0.9em; margin-top: 8px; line-height: 1.4;">${item.description}</p>` : ''}
+                            ${item.vehicle_fits ? `<p style="color: #4facfe; font-size: 0.85em; margin-top: 8px; font-weight: 500;">✓ Fits: ${item.vehicle_fits}</p>` : ''}
                         </div>
-                        <button class="result-action">
+                        <button class="result-action" onclick="alert('Part Name: ${item.name.replace(/'/g, "\\'")}\\nPart Number: ${item.part_number}\\nType: ${item.part_type}\\nCategory: ${item.category}\\n\\nCompatible Vehicles:\\n${item.vehicle_fits ? item.vehicle_fits.replace(/'/g, "\\'") : 'Universal / Unknown'}')">
                             View Details
                         </button>
                     </div>
