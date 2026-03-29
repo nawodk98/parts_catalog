@@ -225,7 +225,7 @@ app.get('/api/database/download', (req, res) => {
 });
 
 
-const server = app.listen(0, () => {
+const server = app.listen(0, '0.0.0.0', () => {
     const port = server.address().port;
     const url = `http://localhost:${port}`;
     console.log(`\n=================================================`);

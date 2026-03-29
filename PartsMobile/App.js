@@ -53,14 +53,25 @@ export default function App() {
     setSyncing(true);
     try {
       const dbName = 'parts.sqlite';
-      let dbDir = FileSystem.documentDirectory + 'SQLite';
+      let rawDir = SQLite.defaultDatabaseDirectory ? SQLite.defaultDatabaseDirectory : FileSystem.documentDirectory + 'SQLite';
       
+      // FileSystem methods REQUIRE the file:// prefix, but SQLite.defaultDatabaseDirectory sometimes doesn't have it
+      let dbDir = rawDir.startsWith('file://') ? rawDir : `file://${rawDir}`;
+
       const dirInfo = await FileSystem.getInfoAsync(dbDir);
       if (!dirInfo.exists) {
         await FileSystem.makeDirectoryAsync(dbDir, { intermediates: true });
       }
       
-      const dbPath = dbDir + '/' + dbName;
+      const dbPath = dbDir + (dbDir.endsWith('/') ? '' : '/') + dbName;
+      
+      // Close existing DB if open to prevent locking
+      if (db) {
+         if (db.closeAsync) await db.closeAsync();
+         else if (db.close) db.close();
+         db = null;
+      }
+
       const downloadRes = await FileSystem.downloadAsync(`${serverUrl}/api/database/download`, dbPath);
       
       if (downloadRes.status !== 200) {
