@@ -159,9 +159,16 @@ app.get('/api/parts/search', (req, res) => {
         SELECT DISTINCT p.* 
         FROM parts p
         LEFT JOIN part_compatibility pc ON p.id = pc.oem_part_id
-        WHERE p.part_number LIKE ? OR pc.genuine_part_number LIKE ?
+        WHERE p.part_number LIKE ? 
+           OR pc.genuine_part_number LIKE ?
+           OR p.part_number IN (
+               SELECT pc2.genuine_part_number 
+               FROM part_compatibility pc2 
+               JOIN parts p2 ON pc2.oem_part_id = p2.id 
+               WHERE p2.part_number LIKE ?
+           )
     `;
-    db.all(query, [`%${q}%`, `%${q}%`], (err, rows) => {
+    db.all(query, [`%${q}%`, `%${q}%`, `%${q}%`], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(rows);
     });
@@ -196,6 +203,12 @@ app.get('/api/parts/vehicle', (req, res) => {
                 res.json(rows);
             });
         });
+});
+// Download Database Endpoint for Offline Mobile Sync
+app.get('/api/database/download', (req, res) => {
+    res.download(dbPath, 'parts.sqlite', (err) => {
+        if (err) console.error("Error downloading database:", err);
+    });
 });
 
 

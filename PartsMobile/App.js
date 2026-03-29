@@ -1,17 +1,20 @@
-
-import React, { useState } from 'react';
-import {
-  StyleSheet, Text, View, TextInput, TouchableOpacity,
-  FlatList, ActivityIndicator, SafeAreaView, KeyboardAvoidingView,
-  Platform, Keyboard
+import React, { useState, useEffect } from 'react';
+import { 
+  StyleSheet, Text, View, TextInput, TouchableOpacity, 
+  FlatList, ActivityIndicator, SafeAreaView, KeyboardAvoidingView, 
+  Platform, Keyboard, Alert
 } from 'react-native';
+import * as FileSystem from 'expo-file-system';
+import * as SQLite from 'expo-sqlite';
+
+let db = null;
 
 export default function App() {
-  // Since you use a dynamic port on your PC, you can enter the URL manually here when testing on Android
   const [serverUrl, setServerUrl] = useState('http://192.168.1.XXX:54321');
-
+  
   const [mode, setMode] = useState('part'); // 'part' | 'vehicle'
   const [loading, setLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [results, setResults] = useState([]);
   const [hasSearched, setHasSearched] = useState(false);
 
@@ -22,17 +25,113 @@ export default function App() {
   const [vSubmodel, setVSubmodel] = useState('');
   const [vCategory, setVCategory] = useState('');
 
+  // Initialize DB on App Start
+  useEffect(() => {
+    initDb();
+  }, []);
+
+  const initDb = async () => {
+    try {
+      if (SQLite.openDatabaseSync) {
+        db = SQLite.openDatabaseSync('parts.sqlite');
+      } else if (SQLite.openDatabaseAsync) {
+        db = await SQLite.openDatabaseAsync('parts.sqlite');
+      } else {
+        db = SQLite.openDatabase('parts.sqlite');
+      }
+    } catch (e) {
+      console.error("Failed to initialize database:", e);
+    }
+  };
+
+  const syncDatabase = async () => {
+    if (!serverUrl || serverUrl.includes('XXX')) {
+      Alert.alert("Invalid URL", "Please enter your laptop's correct IP address and port.");
+      return;
+    }
+
+    setSyncing(true);
+    try {
+      const dbName = 'parts.sqlite';
+      let dbDir = FileSystem.documentDirectory + 'SQLite';
+      
+      const dirInfo = await FileSystem.getInfoAsync(dbDir);
+      if (!dirInfo.exists) {
+        await FileSystem.makeDirectoryAsync(dbDir, { intermediates: true });
+      }
+      
+      const dbPath = dbDir + '/' + dbName;
+      const downloadRes = await FileSystem.downloadAsync(`${serverUrl}/api/database/download`, dbPath);
+      
+      if (downloadRes.status !== 200) {
+          throw new Error("Failed connecting to server");
+      }
+      
+      await initDb();
+      Alert.alert("Success", "Database downloaded! You can now search offline.");
+    } catch(e) {
+      Alert.alert("Sync Error", e.message);
+    }
+    setSyncing(false);
+  };
+
+  const executeQuery = async (query, params = []) => {
+    if (!db) await initDb();
+    
+    return new Promise(async (resolve, reject) => {
+        if (!db) return reject("Database not loaded. Please sync data first.");
+
+        if (db.getAllAsync) {
+            // New Expo SQLite API
+            try {
+                const res = await db.getAllAsync(query, params);
+                resolve(res);
+            } catch (e) {
+                reject(e);
+            }
+        } else {
+            // Old Expo SQLite API
+            db.transaction(tx => {
+                tx.executeSql(query, params, (_, { rows }) => {
+                    resolve(rows._array || rows);
+                }, (_, error) => {
+                    reject(error);
+                    return true;
+                });
+            });
+        }
+    });
+  };
+
   const searchPartNumber = async () => {
     if (!partQuery.trim()) return;
     Keyboard.dismiss();
     setLoading(true);
     setHasSearched(true);
+    
     try {
-      const res = await fetch(`${serverUrl}/api/parts/search?q=${encodeURIComponent(partQuery)}`);
-      const data = await res.json();
-      setResults(data || []);
+      const query = `
+          SELECT DISTINCT p.* 
+          FROM parts p
+          LEFT JOIN part_compatibility pc ON p.id = pc.oem_part_id
+          WHERE p.part_number LIKE ? 
+             OR pc.genuine_part_number LIKE ?
+             OR p.part_number IN (
+                 SELECT pc2.genuine_part_number 
+                 FROM part_compatibility pc2 
+                 JOIN parts p2 ON pc2.oem_part_id = p2.id 
+                 WHERE p2.part_number LIKE ?
+             )
+      `;
+      const params = [`%${partQuery}%`, `%${partQuery}%`, `%${partQuery}%`];
+      const res = await executeQuery(query, params);
+      setResults(res || []);
     } catch (e) {
-      alert("Connection failed. Check your Server URL!");
+      if (e.message?.includes('no such table')) {
+         Alert.alert("Data Missing", "Please Sync Data from your laptop first!");
+      } else {
+         Alert.alert("Search Error", JSON.stringify(e.message || e));
+      }
       setResults([]);
     }
     setLoading(false);
@@ -40,21 +139,47 @@ export default function App() {
 
   const searchVehicle = async () => {
     if (!vBrand.trim() || !vModel.trim() || !vSubmodel.trim()) {
-      alert("Brand, Model, and Submodel are required!");
+      Alert.alert("Required", "Brand, Model, and Submodel are required!");
       return;
     }
     Keyboard.dismiss();
     setLoading(true);
     setHasSearched(true);
-    let url = `${serverUrl}/api/parts/vehicle?brand=${encodeURIComponent(vBrand)}&model=${encodeURIComponent(vModel)}&submodel=${encodeURIComponent(vSubmodel)}`;
-    if (vCategory) url += `&category=${encodeURIComponent(vCategory)}`;
 
     try {
-      const res = await fetch(url);
-      const data = await res.json();
-      setResults(data || []);
+      const vQuery = `SELECT id FROM vehicles WHERE LOWER(brand) = ? AND model = ? AND submodel = ?`;
+      const vRes = await executeQuery(vQuery, [vBrand.toLowerCase(), vModel, vSubmodel]);
+      
+      if (vRes.length === 0) {
+          setResults([]);
+          setLoading(false);
+          return;
+      }
+      
+      const vehicleId = vRes[0].id;
+      
+      let query = `
+          SELECT DISTINCT p.* 
+          FROM parts p
+          LEFT JOIN part_compatibility pc ON p.id = pc.oem_part_id
+          WHERE (p.vehicle_id = ?) 
+             OR (pc.genuine_part_number IN (SELECT part_number FROM parts WHERE vehicle_id = ?))
+      `;
+      let params = [vehicleId, vehicleId];
+
+      if (vCategory && vCategory.toLowerCase() !== 'all') {
+          query += ` AND LOWER(p.category) = ?`;
+          params.push(vCategory.toLowerCase());
+      }
+
+      const pRes = await executeQuery(query, params);
+      setResults(pRes || []);
     } catch (e) {
-      alert("Connection failed. Check your Server URL!");
+      if (e.message?.includes('no such table')) {
+         Alert.alert("Data Missing", "Please Sync Data from your laptop first!");
+      } else {
+         Alert.alert("Search Error", JSON.stringify(e.message || e));
+      }
       setResults([]);
     }
     setLoading(false);
@@ -68,14 +193,14 @@ export default function App() {
         <View style={styles.cardHeader}>
           <Text style={styles.partName}>{item.name} <Text style={styles.partNum}>({item.part_number})</Text></Text>
         </View>
-
+        
         <View style={styles.badgeRow}>
           {isOem ? (
             <View style={[styles.badge, styles.badgeOem]}>
               <Text style={styles.badgeOemText}>OEM - {item.brand}</Text>
             </View>
           ) : (
-            <View style={[styles.badge, styles.badgeGenuine]}>
+             <View style={[styles.badge, styles.badgeGenuine]}>
               <Text style={styles.badgeGenText}>Genuine</Text>
             </View>
           )}
@@ -94,25 +219,32 @@ export default function App() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <View style={styles.header}>
           <Text style={styles.title}>Parts <Text style={styles.titleHighlight}>Catalog</Text></Text>
-          <TextInput
-            style={styles.serverInput}
-            value={serverUrl}
-            onChangeText={setServerUrl}
-            placeholder="http://YOUR_LOCAL_IP:PORT"
-            placeholderTextColor="#888"
-            autoCapitalize="none"
-          />
+          
+          {/* Sync Header Section */}
+          <View style={styles.syncContainer}>
+             <TextInput 
+              style={styles.serverInput}
+              value={serverUrl}
+              onChangeText={setServerUrl}
+              placeholder="http://192.168.1.XXX:54321"
+              placeholderTextColor="#888"
+              autoCapitalize="none"
+             />
+             <TouchableOpacity style={styles.syncBtn} onPress={syncDatabase} disabled={syncing}>
+                <Text style={styles.syncBtnText}>{syncing ? "Downloading..." : "Sync Data"}</Text>
+             </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.tabContainer}>
-          <TouchableOpacity
-            style={[styles.tab, mode === 'part' && styles.activeTab]}
+          <TouchableOpacity 
+            style={[styles.tab, mode === 'part' && styles.activeTab]} 
             onPress={() => { setMode('part'); setResults([]); setHasSearched(false); }}
           >
             <Text style={[styles.tabText, mode === 'part' && styles.activeTabText]}>By Part #</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, mode === 'vehicle' && styles.activeTab]}
+          <TouchableOpacity 
+            style={[styles.tab, mode === 'vehicle' && styles.activeTab]} 
             onPress={() => { setMode('vehicle'); setResults([]); setHasSearched(false); }}
           >
             <Text style={[styles.tabText, mode === 'vehicle' && styles.activeTabText]}>By Vehicle</Text>
@@ -122,16 +254,16 @@ export default function App() {
         <View style={styles.searchContainer}>
           {mode === 'part' ? (
             <View>
-              <TextInput
-                style={styles.input}
-                placeholder="Enter Part Number..."
+              <TextInput 
+                style={styles.input} 
+                placeholder="Enter Part Number..." 
                 placeholderTextColor="#666"
-                value={partQuery}
+                value={partQuery} 
                 onChangeText={setPartQuery}
                 onSubmitEditing={searchPartNumber}
               />
               <TouchableOpacity style={styles.primaryButton} onPress={searchPartNumber}>
-                <Text style={styles.buttonText}>Find Part</Text>
+                <Text style={styles.buttonText}>Find Part (Offline)</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -145,7 +277,7 @@ export default function App() {
                 <TextInput style={[styles.input, { flex: 1, marginLeft: 5 }]} placeholder="Category (Optional)" placeholderTextColor="#666" value={vCategory} onChangeText={setVCategory} />
               </View>
               <TouchableOpacity style={styles.primaryButton} onPress={searchVehicle}>
-                <Text style={styles.buttonText}>Search Vehicle Parts</Text>
+                <Text style={styles.buttonText}>Search Vehicle Parts (Offline)</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -153,7 +285,7 @@ export default function App() {
 
         <View style={styles.resultsContainer}>
           {loading ? (
-            <ActivityIndicator size="large" color="#4facfe" style={{ marginTop: 50 }} />
+             <ActivityIndicator size="large" color="#4facfe" style={{ marginTop: 50 }} />
           ) : (
             <FlatList
               data={results}
@@ -177,7 +309,10 @@ const styles = StyleSheet.create({
   header: { padding: 20, paddingTop: Platform.OS === 'android' ? 40 : 20, alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#1e293b' },
   title: { color: 'white', fontSize: 24, fontWeight: '700' },
   titleHighlight: { color: '#4facfe' },
-  serverInput: { marginTop: 10, width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', color: '#888', borderRadius: 8, padding: 8, fontSize: 13, textAlign: 'center' },
+  syncContainer: { flexDirection: 'row', marginTop: 15, width: '100%' },
+  serverInput: { flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', color: '#888', borderRadius: 8, padding: 8, fontSize: 13, marginRight: 10 },
+  syncBtn: { backgroundColor: '#3b82f6', paddingHorizontal: 15, justifyContent: 'center', borderRadius: 8 },
+  syncBtnText: { color: 'white', fontSize: 13, fontWeight: 'bold' },
   tabContainer: { flexDirection: 'row', margin: 20, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 10, overflow: 'hidden', padding: 4 },
   tab: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 8 },
   activeTab: { backgroundColor: '#4facfe' },
