@@ -23,6 +23,7 @@ export default function App() {
   const [vBrand, setVBrand] = useState('');
   const [vModel, setVModel] = useState('');
   const [vSubmodel, setVSubmodel] = useState('');
+  const [vEngine, setVEngine] = useState('');
   const [vCategory, setVCategory] = useState('');
 
   // Initialize DB on App Start
@@ -123,7 +124,8 @@ export default function App() {
     try {
       const query = `
           SELECT p.*,
-                 GROUP_CONCAT(DISTINCT UPPER(v.brand) || ' ' || v.model || ' ' || v.submodel) as vehicle_fits
+                 (CASE WHEN p.engine_type IS NOT NULL AND p.engine_type != '' THEN 'Engine: ' || p.engine_type ELSE '' END) as engine_fitment,
+                 GROUP_CONCAT(DISTINCT UPPER(v.brand) || ' ' || v.model || ' ' || v.submodel || COALESCE(' ' || NULLIF(v.engine_type, ''), '')) as vehicle_fits
           FROM parts p
           LEFT JOIN part_compatibility pc ON p.id = pc.oem_part_id
           LEFT JOIN parts gp ON pc.genuine_part_number = gp.part_number
@@ -147,8 +149,8 @@ export default function App() {
       const res = await executeQuery(query, params);
       setResults(res || []);
     } catch (e) {
-      if (e.message?.includes('no such table')) {
-         Alert.alert("Data Missing", "Please Sync Data from your laptop first!");
+      if (e.message?.includes('no such table') || e.message?.includes('no such column')) {
+         Alert.alert("Data Update Needed", "Please Sync Data from your laptop! The database schema has been upgraded.");
       } else {
          Alert.alert("Search Error", JSON.stringify(e.message || e));
       }
@@ -167,28 +169,58 @@ export default function App() {
     setHasSearched(true);
 
     try {
-      const vQuery = `SELECT id FROM vehicles WHERE LOWER(brand) = ? AND model = ? AND submodel = ?`;
-      const vRes = await executeQuery(vQuery, [vBrand.toLowerCase(), vModel, vSubmodel]);
+      let vQuery = `SELECT id, engine_type FROM vehicles WHERE LOWER(brand) = ? AND model = ? AND submodel = ?`;
+      let vParams = [vBrand.toLowerCase(), vModel, vSubmodel];
       
-      if (vRes.length === 0) {
+      if (vEngine.trim()) {
+          vQuery += ` AND engine_type = ? COLLATE NOCASE`;
+          vParams.push(vEngine.trim());
+      }
+      
+      const vRes = await executeQuery(vQuery, vParams);
+      
+      if (vRes.length === 0 && !vEngine.trim()) {
           setResults([]);
           setLoading(false);
           return;
       }
       
-      const vehicleId = vRes[0].id;
+      const conditions = [];
+      let params = [];
+
+      if (vRes.length > 0) {
+          const vehicleId = vRes[0].id;
+          const vehicleEngine = vRes[0].engine_type;
+          conditions.push(`(p.vehicle_id = ?)`);
+          conditions.push(`(pc.genuine_part_number IN (SELECT part_number FROM parts WHERE vehicle_id = ?))`);
+          params.push(vehicleId, vehicleId);
+          if (vehicleEngine) {
+              conditions.push(`(p.engine_type = ? COLLATE NOCASE AND p.engine_type != '')`);
+              params.push(vehicleEngine);
+          }
+      }
+
+      if (vEngine.trim()) {
+          conditions.push(`(p.engine_type = ? COLLATE NOCASE AND p.engine_type != '')`);
+          params.push(vEngine.trim());
+      }
+      
+      if (conditions.length === 0) {
+          setResults([]);
+          setLoading(false);
+          return;
+      }
       
       let query = `
           SELECT p.*,
-                 GROUP_CONCAT(DISTINCT UPPER(v.brand) || ' ' || v.model || ' ' || v.submodel) as vehicle_fits
+                 (CASE WHEN p.engine_type IS NOT NULL AND p.engine_type != '' THEN 'Engine: ' || p.engine_type ELSE '' END) as engine_fitment,
+                 GROUP_CONCAT(DISTINCT UPPER(v.brand) || ' ' || v.model || ' ' || v.submodel || COALESCE(' ' || NULLIF(v.engine_type, ''), '')) as vehicle_fits
           FROM parts p
           LEFT JOIN part_compatibility pc ON p.id = pc.oem_part_id
           LEFT JOIN parts gp ON pc.genuine_part_number = gp.part_number
           LEFT JOIN vehicles v ON p.vehicle_id = v.id OR gp.vehicle_id = v.id
-          WHERE (p.vehicle_id = ?) 
-             OR (pc.genuine_part_number IN (SELECT part_number FROM parts WHERE vehicle_id = ?))
+          WHERE 1=1 AND ( ${conditions.join(' OR ')} )
       `;
-      let params = [vehicleId, vehicleId];
 
       if (vCategory && vCategory.toLowerCase() !== 'all') {
           query += ` AND LOWER(p.category) = ?`;
@@ -199,8 +231,8 @@ export default function App() {
       const pRes = await executeQuery(query, params);
       setResults(pRes || []);
     } catch (e) {
-      if (e.message?.includes('no such table')) {
-         Alert.alert("Data Missing", "Please Sync Data from your laptop first!");
+      if (e.message?.includes('no such table') || e.message?.includes('no such column')) {
+         Alert.alert("Data Update Needed", "Please Sync Data from your laptop! The database schema has been upgraded.");
       } else {
          Alert.alert("Search Error", JSON.stringify(e.message || e));
       }
@@ -239,10 +271,14 @@ export default function App() {
           <Text style={{color: '#4facfe', fontSize: 13, marginTop: 8, fontWeight: '500'}}>✓ Fits: {item.vehicle_fits}</Text>
         ) : null}
 
+        {item.engine_fitment ? (
+          <Text style={{color: '#ff9ff3', fontSize: 13, marginTop: 4, fontWeight: '500'}}>⚙️ {item.engine_fitment}</Text>
+        ) : null}
+
         <TouchableOpacity style={{marginTop: 15, paddingVertical: 10, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 8, alignItems: 'center'}} onPress={() => {
             Alert.alert(
                 "Part Details", 
-                `Name: ${item.name}\nNumber: ${item.part_number}\nCategory: ${item.category}\n\nCompatible Vehicles:\n${item.vehicle_fits || 'Universal / Unknown'}`
+                `Name: ${item.name}\nNumber: ${item.part_number}\nCategory: ${item.category}\n\nCompatible Vehicles:\n${item.vehicle_fits || 'None / Unknown'}\n\nFits Engine:\n${item.engine_fitment ? item.engine_fitment.replace('Engine: ', '') : 'Universal'}`
             );
         }}>
             <Text style={{color: 'white', fontWeight: 'bold'}}>View Details</Text>
@@ -311,7 +347,10 @@ export default function App() {
               </View>
               <View style={styles.row}>
                 <TextInput style={[styles.input, { flex: 1, marginRight: 5 }]} placeholder="Submodel (e.g. LE)" placeholderTextColor="#666" value={vSubmodel} onChangeText={setVSubmodel} />
-                <TextInput style={[styles.input, { flex: 1, marginLeft: 5 }]} placeholder="Category (Optional)" placeholderTextColor="#666" value={vCategory} onChangeText={setVCategory} />
+                <TextInput style={[styles.input, { flex: 1, marginLeft: 5 }]} placeholder="Engine (e.g. 2KD)" placeholderTextColor="#666" value={vEngine} onChangeText={setVEngine} />
+              </View>
+              <View style={styles.row}>
+                <TextInput style={[styles.input, { flex: 1 }]} placeholder="Category (Optional)" placeholderTextColor="#666" value={vCategory} onChangeText={setVCategory} />
               </View>
               <TouchableOpacity style={styles.primaryButton} onPress={searchVehicle}>
                 <Text style={styles.buttonText}>Search Vehicle Parts (Offline)</Text>

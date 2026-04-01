@@ -17,8 +17,11 @@ const db = new sqlite3.Database(dbPath, (err) => {
              id INTEGER PRIMARY KEY AUTOINCREMENT,
              brand TEXT,
              model TEXT,
-             submodel TEXT
-         )`);
+             submodel TEXT,
+             engine_type TEXT
+         )`, () => {
+             db.run("ALTER TABLE vehicles ADD COLUMN engine_type TEXT", () => {});
+         });
 
         db.run(`CREATE TABLE IF NOT EXISTS parts (
              id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -26,6 +29,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
              name TEXT,
              description TEXT,
              vehicle_id INTEGER,
+             engine_type TEXT,
              category TEXT,
              part_type TEXT DEFAULT 'Genuine',
              brand TEXT,
@@ -35,6 +39,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
              db.run("ALTER TABLE parts ADD COLUMN part_type TEXT DEFAULT 'Genuine'", () => {});
              db.run("ALTER TABLE parts ADD COLUMN brand TEXT", () => {});
              db.run("ALTER TABLE parts ADD COLUMN description TEXT", () => {});
+             db.run("ALTER TABLE parts ADD COLUMN engine_type TEXT", () => {});
          });
 
         db.run(`CREATE TABLE IF NOT EXISTS part_compatibility (
@@ -67,6 +72,11 @@ app.get('/api/suggestions', async (req, res) => {
         const pNames = await dbAll("SELECT DISTINCT name FROM parts WHERE name IS NOT NULL AND name != ''");
         const pDescriptions = await dbAll("SELECT DISTINCT description FROM parts WHERE description IS NOT NULL AND description != ''");
         const pCategories = await dbAll("SELECT DISTINCT category FROM parts WHERE category IS NOT NULL AND category != ''");
+        const pEngines = await dbAll("SELECT DISTINCT engine_type FROM parts WHERE engine_type IS NOT NULL AND engine_type != ''");
+        const vEngines = await dbAll("SELECT DISTINCT engine_type FROM vehicles WHERE engine_type IS NOT NULL AND engine_type != ''");
+
+        // Merge engines from parts and vehicles
+        const allEngines = [...new Set([...pEngines.map(r => r.engine_type), ...vEngines.map(r => r.engine_type)])];
 
         res.json({
             vBrands: vBrands.map(r => r.brand),
@@ -75,7 +85,8 @@ app.get('/api/suggestions', async (req, res) => {
             pBrands: pBrands.map(r => r.brand),
             pNames: pNames.map(r => r.name),
             pDescriptions: pDescriptions.map(r => r.description),
-            pCategories: pCategories.map(r => r.category)
+            pCategories: pCategories.map(r => r.category),
+            engines: allEngines
         });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -84,25 +95,26 @@ app.get('/api/suggestions', async (req, res) => {
 
 // Add a new vehicle
 app.post('/api/vehicles', (req, res) => {
-    const { brand, model, submodel } = req.body;
-    db.run(`INSERT INTO vehicles (brand, model, submodel) VALUES (?, ?, ?)`,
-        [brand.toLowerCase(), model, submodel],
+    const { brand, model, submodel, engine_type } = req.body;
+    db.run(`INSERT INTO vehicles (brand, model, submodel, engine_type) VALUES (?, ?, ?, ?)`,
+        [brand.toLowerCase(), model, submodel, engine_type || ''],
         function (err) {
             if (err) return res.status(400).json({ error: err.message });
-            res.status(201).json({ id: this.lastID, brand, model, submodel });
+            res.status(201).json({ id: this.lastID, brand, model, submodel, engine_type });
         }
     );
 });
 
 // Add a new part
 app.post('/api/parts', (req, res) => {
-    const { part_type, brand, part_number, name, description, category, vehicle_id, compatible_genuine_numbers } = req.body;
+    const { part_type, brand, part_number, name, description, category, vehicle_id, engine_type, compatible_genuine_numbers } = req.body;
     
-    const vId = part_type === 'OEM' ? null : vehicle_id;
+    // Allow saving part even if vehicle_id is missing, as long as it has an engine_type
+    const vId = part_type === 'OEM' ? null : (vehicle_id ? vehicle_id : null);
 
-    db.run(`INSERT INTO parts (part_type, brand, part_number, name, description, category, vehicle_id) 
-            VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [part_type || 'Genuine', brand || null, part_number, name, description, category, vId],
+    db.run(`INSERT INTO parts (part_type, brand, part_number, name, description, category, vehicle_id, engine_type) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [part_type || 'Genuine', brand || null, part_number, name, description, category, vId, engine_type || null],
         function (err) {
             if (err) return res.status(400).json({ error: err.message });
             const pId = this.lastID;
@@ -143,8 +155,11 @@ app.get('/api/vehicles', (req, res) => {
         rows.forEach(v => {
             const b = v.brand;
             if (!data[b]) data[b] = { name: b.charAt(0).toUpperCase() + b.slice(1), models: {} };
-            if (!data[b].models[v.model]) data[b].models[v.model] = [];
-            if (!data[b].models[v.model].includes(v.submodel)) data[b].models[v.model].push(v.submodel);
+            if (!data[b].models[v.model]) data[b].models[v.model] = {};
+            if (!data[b].models[v.model][v.submodel]) data[b].models[v.model][v.submodel] = [];
+            if (v.engine_type && !data[b].models[v.model][v.submodel].includes(v.engine_type)) {
+                data[b].models[v.model][v.submodel].push(v.engine_type);
+            }
         });
 
         // Return object keys if empty to avoid breaking frontend
@@ -157,7 +172,8 @@ app.get('/api/parts/search', (req, res) => {
     const { q } = req.query;
     const query = `
         SELECT p.*,
-               GROUP_CONCAT(DISTINCT UPPER(v.brand) || ' ' || v.model || ' ' || v.submodel) as vehicle_fits
+               (CASE WHEN p.engine_type IS NOT NULL AND p.engine_type != '' THEN 'Engine: ' || p.engine_type ELSE '' END) as engine_fitment,
+               GROUP_CONCAT(DISTINCT UPPER(v.brand) || ' ' || v.model || ' ' || v.submodel || COALESCE(' ' || NULLIF(v.engine_type, ''), '')) as vehicle_fits
         FROM parts p
         LEFT JOIN part_compatibility pc ON p.id = pc.oem_part_id
         LEFT JOIN parts gp ON pc.genuine_part_number = gp.part_number
@@ -185,25 +201,55 @@ app.get('/api/parts/search', (req, res) => {
 
 // Search Parts by Vehicle Details
 app.get('/api/parts/vehicle', (req, res) => {
-    const { brand, model, submodel, category } = req.query;
+    const { brand, model, submodel, engine_type, category } = req.query;
 
-    db.get(`SELECT id FROM vehicles WHERE brand = ? AND model = ? AND submodel = ?`,
-        [brand.toLowerCase(), model, submodel],
+    let vQuery = `SELECT id, engine_type FROM vehicles WHERE brand = ? AND model = ? AND submodel = ?`;
+    let vParams = [brand.toLowerCase(), model, submodel];
+    if (engine_type) {
+        vQuery += ` AND engine_type = ?`;
+        vParams.push(engine_type);
+    }
+
+    db.get(vQuery, vParams,
         (err, vehicle) => {
             if (err) return res.status(500).json({ error: err.message });
-            if (!vehicle) return res.json([]);
+            if (!vehicle && !engine_type) return res.json([]);
+            
+            // If vehicle matched, find parts matching the vehicle ID or its engine
+            // If no vehicle matched but user provided engine, just search by engine
 
             let query = `
                 SELECT p.*,
-                       GROUP_CONCAT(DISTINCT UPPER(v.brand) || ' ' || v.model || ' ' || v.submodel) as vehicle_fits
+                       (CASE WHEN p.engine_type IS NOT NULL AND p.engine_type != '' THEN 'Engine: ' || p.engine_type ELSE '' END) as engine_fitment,
+                       GROUP_CONCAT(DISTINCT UPPER(v.brand) || ' ' || v.model || ' ' || v.submodel || COALESCE(' ' || NULLIF(v.engine_type, ''), '')) as vehicle_fits
                 FROM parts p
                 LEFT JOIN part_compatibility pc ON p.id = pc.oem_part_id
                 LEFT JOIN parts gp ON pc.genuine_part_number = gp.part_number
                 LEFT JOIN vehicles v ON p.vehicle_id = v.id OR gp.vehicle_id = v.id
-                WHERE (p.vehicle_id = ?) 
-                   OR (pc.genuine_part_number IN (SELECT part_number FROM parts WHERE vehicle_id = ?))
+                WHERE 1=1 AND (
             `;
-            let params = [vehicle.id, vehicle.id];
+            
+            let params = [];
+            const conditions = [];
+
+            if (vehicle) {
+                conditions.push(`(p.vehicle_id = ?)`, `(pc.genuine_part_number IN (SELECT part_number FROM parts WHERE vehicle_id = ?))`);
+                params.push(vehicle.id, vehicle.id);
+                if (vehicle.engine_type) {
+                    conditions.push(`(p.engine_type = ? COLLATE NOCASE AND p.engine_type != '')`);
+                    params.push(vehicle.engine_type);
+                }
+            }
+            if (engine_type) {
+                conditions.push(`(p.engine_type = ? COLLATE NOCASE AND p.engine_type != '')`);
+                params.push(engine_type);
+            }
+
+            if (conditions.length === 0) {
+                 return res.json([]);
+            }
+
+            query += conditions.join(' OR ') + ` )`;
 
             if (category && category !== 'All') {
                 query += ` AND p.category = ?`;

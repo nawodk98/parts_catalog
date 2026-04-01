@@ -96,6 +96,7 @@
             <datalist id="dl-p-name"></datalist>
             <datalist id="dl-p-desc"></datalist>
             <datalist id="dl-p-category"></datalist>
+            <datalist id="dl-engine"></datalist>
 
             <!-- Vehicle Form -->
             <div id="section-vehicle" class="form-section active form-wrapper">
@@ -112,6 +113,10 @@
                     <div class="form-group">
                         <label>Sub Model (e.g., LE, XSE)</label>
                         <input type="text" id="v-submodel" list="dl-v-submodel" class="premium-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Engine Type (e.g., 2KD)</label>
+                        <input type="text" id="v-engine" list="dl-engine" class="premium-input">
                     </div>
                     <button type="submit" class="btn-primary" style="width: 100%; justify-content: center;">Save
                         Vehicle</button>
@@ -133,9 +138,13 @@
                     </div>
                     <div class="form-group" id="p-vehicle-div">
                         <label>Assign to Vehicle</label>
-                        <select id="p-vehicle-id" required style="width:100%">
-                            <option value="">Loading vehicles...</option>
+                        <select id="p-vehicle-id" style="width:100%">
+                            <option value="">-- None / Engine Only --</option>
                         </select>
+                    </div>
+                    <div class="form-group" id="p-engine-div">
+                        <label>Assign to Engine (Optional, fits ALL with this engine)</label>
+                        <input type="text" id="p-engine" list="dl-engine" class="premium-input" placeholder="e.g. 2KD">
                     </div>
                     <div class="form-group" id="p-oem-brand-div" style="display: none;">
                         <label>OEM Brand Name (e.g., Bosch)</label>
@@ -188,7 +197,8 @@
             const data = {
                 brand: document.getElementById('v-brand').value,
                 model: document.getElementById('v-model').value,
-                submodel: document.getElementById('v-submodel').value
+                submodel: document.getElementById('v-submodel').value,
+                engine_type: document.getElementById('v-engine').value
             };
 
             try {
@@ -232,6 +242,7 @@
                 populate('dl-p-name', data.pNames);
                 populate('dl-p-desc', data.pDescriptions);
                 populate('dl-p-category', data.pCategories);
+                populate('dl-engine', data.engines || []);
             } catch(e) {
                 console.error("Failed to load suggestions", e);
             }
@@ -245,9 +256,9 @@
                 const res = await fetch('/api/vehicles/raw');
                 const vehicles = await res.json();
                 const sel = document.getElementById('p-vehicle-id');
-                sel.innerHTML = '<option value="" disabled selected>Select a vehicle...</option>';
+                sel.innerHTML = '<option value="">-- None / Engine Only --</option>';
                 vehicles.forEach(v => {
-                    sel.innerHTML += `<option value="${v.id}">${v.brand.toUpperCase()} ${v.model} (${v.submodel})</option>`;
+                    sel.innerHTML += `<option value="${v.id}">${v.brand.toUpperCase()} ${v.model} (${v.submodel}) ${v.engine_type || ''}</option>`;
                 });
             } catch (e) {
                 console.error("Failed to load vehicles", e);
@@ -266,12 +277,10 @@
                 vehicleDiv.style.display = 'block';
                 oemBrandDiv.style.display = 'none';
                 compatibleDiv.style.display = 'none';
-                vehicleSelect.setAttribute('required', 'true');
             } else {
                 vehicleDiv.style.display = 'none';
                 oemBrandDiv.style.display = 'block';
                 compatibleDiv.style.display = 'block';
-                vehicleSelect.removeAttribute('required');
             }
         }
 
@@ -282,6 +291,7 @@
                 part_type: document.getElementById('p-type').value,
                 brand: document.getElementById('p-brand').value,
                 vehicle_id: document.getElementById('p-vehicle-id').value,
+                engine_type: document.getElementById('p-engine').value,
                 part_number: document.getElementById('p-number').value,
                 name: document.getElementById('p-name').value,
                 description: document.getElementById('p-description').value,

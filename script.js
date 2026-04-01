@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const selBrand = document.getElementById('vehicle-brand');
     const selModel = document.getElementById('vehicle-model');
     const selSubmodel = document.getElementById('vehicle-submodel');
+    const selEngine = document.getElementById('vehicle-engine');
     const selPart = document.getElementById('vehicle-part');
 
     // Action and Result Tracking
@@ -104,6 +105,8 @@ document.addEventListener('DOMContentLoaded', () => {
             // Disable downstream
             selSubmodel.innerHTML = `<option value="" disabled selected>Sub Model</option>`;
             selSubmodel.disabled = true;
+            selEngine.innerHTML = `<option value="" disabled selected>Engine (Optional)</option>`;
+            selEngine.disabled = true;
             selPart.innerHTML = `<option value="" disabled selected>Part</option>`;
             selPart.disabled = true;
         }
@@ -114,9 +117,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const model = e.target.value;
 
         if (model && vehicleData[brand] && vehicleData[brand].models[model]) {
-            const submodels = vehicleData[brand].models[model];
+            const submodels = Object.keys(vehicleData[brand].models[model]);
             populateDropdown(selSubmodel, submodels.map(s => ({ value: s, text: s })), 'Sub Model');
 
+            selEngine.innerHTML = `<option value="" disabled selected>Engine (Optional)</option>`;
+            selEngine.disabled = true;
             selPart.innerHTML = `<option value="" disabled selected>Part Category</option>`;
             selPart.disabled = true;
         }
@@ -124,7 +129,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     selSubmodel.addEventListener('change', (e) => {
         const submodel = e.target.value;
+        const brand = selBrand.value;
+        const model = selModel.value;
+
         if (submodel) {
+            const engines = vehicleData[brand].models[model][submodel] || [];
+            const validEngines = [...new Set(engines.filter(Boolean))];
+            if (validEngines.length > 0) {
+                populateDropdown(selEngine, validEngines.map(s => ({ value: s, text: s })), 'Engine (Optional)');
+                selEngine.innerHTML += '<option value="">Any Engine</option>';
+            } else {
+                selEngine.innerHTML = `<option value="">Any Engine</option>`;
+                selEngine.disabled = false;
+            }
+
             // Hardcode common part categories for the dropdown, or fetch dynamic categories.
             // For now, let's offer "All" or some standard items to search the DB.
             const partCategories = [
@@ -172,8 +190,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const category = selPart.value === 'All' ? '' : selPart.value;
+            const engine = selEngine.value && selEngine.value !== 'Any Engine' ? selEngine.value : '';
             queryDesc = `${selBrand.options[selBrand.selectedIndex].text} ${selModel.options[selModel.selectedIndex].text} - ${selPart.options[selPart.selectedIndex].text}`;
-            url = `/api/parts/vehicle?brand=${encodeURIComponent(selBrand.value)}&model=${encodeURIComponent(selModel.value)}&submodel=${encodeURIComponent(selSubmodel.value)}&category=${encodeURIComponent(category)}`;
+            if (engine) queryDesc += ` (${engine})`;
+            url = `/api/parts/vehicle?brand=${encodeURIComponent(selBrand.value)}&model=${encodeURIComponent(selModel.value)}&submodel=${encodeURIComponent(selSubmodel.value)}&engine_type=${encodeURIComponent(engine)}&category=${encodeURIComponent(category)}`;
         }
 
         // Simulate API call and loading state UI
@@ -221,8 +241,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             </div>
                             ${item.description ? `<p style="color: var(--secondary-text); font-size: 0.9em; margin-top: 8px; line-height: 1.4;">${item.description}</p>` : ''}
                             ${item.vehicle_fits ? `<p style="color: #4facfe; font-size: 0.85em; margin-top: 8px; font-weight: 500;">✓ Fits: ${item.vehicle_fits}</p>` : ''}
+                            ${item.engine_fitment ? `<p style="color: #ff9ff3; font-size: 0.85em; margin-top: 4px; font-weight: 500;">⚙️ ${item.engine_fitment}</p>` : ''}
                         </div>
-                        <button class="result-action" onclick="alert('Part Name: ${item.name.replace(/'/g, "\\'")}\\nPart Number: ${item.part_number}\\nType: ${item.part_type}\\nCategory: ${item.category}\\n\\nCompatible Vehicles:\\n${item.vehicle_fits ? item.vehicle_fits.replace(/'/g, "\\'") : 'Universal / Unknown'}')">
+                        <button class="result-action" onclick="alert('Part Name: ${item.name.replace(/'/g, "\\'")}\\nPart Number: ${item.part_number}\\nType: ${item.part_type}\\nCategory: ${item.category}\\n\\nCompatible Vehicles:\\n${item.vehicle_fits ? item.vehicle_fits.replace(/'/g, "\\'") : 'Universal / Unknown'}\\n\\nFits Engine:\\n${item.engine_fitment ? item.engine_fitment.replace('Engine: ', '') : 'Universal'}')">
                             View Details
                         </button>
                     </div>
