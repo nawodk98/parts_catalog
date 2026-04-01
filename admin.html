@@ -126,7 +126,7 @@
 
             <!-- Part Form -->
             <div id="section-part" class="form-section form-wrapper">
-                <h2 style="margin-bottom: 20px; font-weight: 500;">Add New Part</h2>
+                <h2 id="part-form-title" style="margin-bottom: 20px; font-weight: 500;">Add New Part</h2>
                 <form id="partForm">
                     <div class="form-group">
                         <label>Part Type</label>
@@ -169,10 +169,12 @@
                         <label>Compatible Genuine Part Numbers (comma-separated)</label>
                         <input type="text" id="p-compatible" class="premium-input" placeholder="e.g., TOY-1234, HON-555">
                     </div>
-                    <button type="submit" class="btn-primary" style="width: 100%; justify-content: center;">Save
-                        Part</button>
+                    <div style="display: flex; gap: 10px;">
+                        <button id="part-submit-btn" type="submit" class="btn-primary" style="flex: 1; justify-content: center;">Save Part</button>
+                        <button id="part-cancel-btn" type="button" class="btn-primary" style="flex: 1; justify-content: center; background: #666; display: none;" onclick="cancelEditPart()">Cancel Edit</button>
+                    </div>
                     <p id="p-success" class="success-msg">Part added successfully!</p>
-                    <p id="p-error" class="error-msg">Error adding part.</p>
+                    <p id="p-error" class="error-msg">Error saving part.</p>
                 </form>
             </div>
 
@@ -217,6 +219,7 @@
                         <td style="padding:10px;">${p.part_number}</td>
                         <td>${p.name} <span style="font-size:0.8em; color:#666;">(${p.category})</span></td>
                         <td>
+                            <button onclick="editPart(${p.id})" style="background:#4facfe; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-weight:bold; margin-right: 5px;">Edit</button>
                             <button onclick="deletePart(${p.id})" style="background:#ff4757; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-weight:bold;">Delete</button>
                         </td>
                     </tr>`;
@@ -241,6 +244,47 @@
             } catch(e) {
                 console.error(e);
             }
+        }
+
+        // Editing State
+        let editingPartId = null;
+
+        async function editPart(id) {
+            try {
+                const res = await fetch(`/api/parts/${id}`);
+                const part = await res.json();
+                
+                editingPartId = id;
+                document.getElementById('p-type').value = part.part_type || 'Genuine';
+                document.getElementById('p-vehicle-id').value = part.vehicle_id || '';
+                document.getElementById('p-engine').value = part.engine_type || '';
+                document.getElementById('p-brand').value = part.brand || '';
+                document.getElementById('p-number').value = part.part_number;
+                document.getElementById('p-name').value = part.name;
+                document.getElementById('p-description').value = part.description || '';
+                document.getElementById('p-category').value = part.category;
+                document.getElementById('p-compatible').value = part.compatible_genuine_numbers || '';
+                
+                togglePartType();
+                
+                document.getElementById('part-form-title').textContent = 'Edit Part';
+                document.getElementById('part-submit-btn').textContent = 'Update Part';
+                document.getElementById('part-cancel-btn').style.display = 'flex';
+                
+                switchSection('part');
+            } catch(e) {
+                console.error("Failed to load part for editing", e);
+            }
+        }
+
+        function cancelEditPart() {
+            editingPartId = null;
+            document.getElementById('partForm').reset();
+            document.getElementById('part-form-title').textContent = 'Add New Part';
+            document.getElementById('part-submit-btn').textContent = 'Save Part';
+            document.getElementById('part-cancel-btn').style.display = 'none';
+            togglePartType();
+            switchSection('manage');
         }
 
         // Add Vehicle
@@ -336,7 +380,7 @@
             }
         }
 
-        // Add Part
+        // Add or Update Part
         document.getElementById('partForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const data = {
@@ -352,21 +396,34 @@
             };
 
             try {
-                const res = await fetch('/api/parts', {
-                    method: 'POST',
+                const isUpdating = editingPartId !== null;
+                const endpoint = isUpdating ? `/api/parts/${editingPartId}` : '/api/parts';
+                const method = isUpdating ? 'PUT' : 'POST';
+
+                const res = await fetch(endpoint, {
+                    method: method,
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data)
                 });
 
                 if (res.ok) {
-                    document.getElementById('p-success').style.display = 'block';
+                    const msgEl = document.getElementById('p-success');
+                    msgEl.textContent = isUpdating ? "Part updated successfully!" : "Part added successfully!";
+                    msgEl.style.display = 'block';
                     document.getElementById('p-error').style.display = 'none';
-                    // Crucial: Only clear Part Number and Compatible mappings!
-                    document.getElementById('p-number').value = '';
-                    document.getElementById('p-compatible').value = '';
-                    document.getElementById('p-number').focus();
                     
-                    setTimeout(() => document.getElementById('p-success').style.display = 'none', 3000);
+                    if (isUpdating) {
+                        setTimeout(() => {
+                            msgEl.style.display = 'none';
+                            cancelEditPart();
+                        }, 1500);
+                    } else {
+                        // Crucial: Only clear Part Number and Compatible mappings on regular add
+                        document.getElementById('p-number').value = '';
+                        document.getElementById('p-compatible').value = '';
+                        document.getElementById('p-number').focus();
+                        setTimeout(() => msgEl.style.display = 'none', 3000);
+                    }
                     loadSuggestions(); // refresh datalists
                 } else {
                     document.getElementById('p-error').textContent = (await res.json()).error;

@@ -286,6 +286,53 @@ app.get('/api/parts/all', (req, res) => {
     });
 });
 
+// Get a single part by ID
+app.get('/api/parts/:id', (req, res) => {
+    db.get(`SELECT * FROM parts WHERE id = ?`, [req.params.id], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!row) return res.status(404).json({ error: 'Not found' });
+        
+        if (row.part_type === 'OEM') {
+            db.all(`SELECT genuine_part_number FROM part_compatibility WHERE oem_part_id = ?`, [row.id], (err2, cmp) => {
+                row.compatible_genuine_numbers = (!err2 && cmp) ? cmp.map(c => c.genuine_part_number).join(', ') : '';
+                res.json(row);
+            });
+        } else {
+            res.json(row);
+        }
+    });
+});
+
+// Update a part
+app.put('/api/parts/:id', (req, res) => {
+    const pId = req.params.id;
+    const { part_type, brand, part_number, name, description, category, vehicle_id, engine_type, compatible_genuine_numbers } = req.body;
+    
+    const vId = part_type === 'OEM' ? null : (vehicle_id ? vehicle_id : null);
+
+    db.run(`UPDATE parts SET part_type=?, brand=?, part_number=?, name=?, description=?, category=?, vehicle_id=?, engine_type=? WHERE id=?`,
+        [part_type || 'Genuine', brand || null, part_number, name, description, category, vId, engine_type || null, pId],
+        function (err) {
+            if (err) return res.status(400).json({ error: err.message });
+            
+            db.run(`DELETE FROM part_compatibility WHERE oem_part_id = ?`, [pId], (err2) => {
+                if (part_type === 'OEM' && compatible_genuine_numbers) {
+                    const genNums = compatible_genuine_numbers.split(',').map(s => s.trim()).filter(Boolean);
+                    if (genNums.length > 0) {
+                        const placeholders = genNums.map(() => '(?, ?)').join(',');
+                        const values = genNums.flatMap(num => [pId, num]);
+                        db.run(`INSERT INTO part_compatibility (oem_part_id, genuine_part_number) VALUES ${placeholders}`, values, () => {
+                            return res.status(200).json({ success: true });
+                        });
+                        return;
+                    }
+                }
+                res.status(200).json({ success: true });
+            });
+        }
+    );
+});
+
 // Delete a part
 app.delete('/api/parts/:id', (req, res) => {
     const id = req.params.id;
