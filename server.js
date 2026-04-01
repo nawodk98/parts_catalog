@@ -276,6 +276,28 @@ app.get('/api/database/download', (req, res) => {
     });
 });
 
+// === API Routes for Database Management ===
+
+// Get recent parts
+app.get('/api/parts/all', (req, res) => {
+    db.all(`SELECT id, part_number, name, category, part_type, engine_type FROM parts ORDER BY id DESC LIMIT 100`, [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows);
+    });
+});
+
+// Delete a part
+app.delete('/api/parts/:id', (req, res) => {
+    const id = req.params.id;
+    db.run("DELETE FROM part_compatibility WHERE oem_part_id = ?", [id], (err) => {
+        if (err) return res.status(500).json({ error: err.message });
+        db.run("DELETE FROM parts WHERE id = ?", [id], function(err2) {
+            if (err2) return res.status(500).json({ error: err2.message });
+            res.json({ success: true, changes: this.changes });
+        });
+    });
+});
+
 
 const server = app.listen(0, '0.0.0.0', () => {
     const port = server.address().port;

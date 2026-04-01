@@ -81,11 +81,10 @@
 
         <main class="main-content">
             <div class="admin-nav">
-                <button class="admin-btn active" id="nav-vehicle" onclick="switchSection('vehicle')">Add
-                    Vehicle</button>
+                <button class="admin-btn active" id="nav-vehicle" onclick="switchSection('vehicle')">Add Vehicle</button>
                 <button class="admin-btn" id="nav-part" onclick="switchSection('part')">Add Part</button>
-                <a href="/" style="margin-left:auto; color: var(--accent-glow); text-decoration: none;">&larr; Back to
-                    App</a>
+                <button class="admin-btn" id="nav-manage" onclick="switchSection('manage')">Manage Parts</button>
+                <a href="/" style="margin-left:auto; color: var(--accent-glow); text-decoration: none;">&larr; Back to App</a>
             </div>
 
             <!-- Datalists for Autocomplete -->
@@ -177,6 +176,13 @@
                 </form>
             </div>
 
+            <!-- Manage Parts -->
+            <div id="section-manage" class="form-section form-wrapper" style="max-height: 500px; overflow-y: auto;">
+                <h2 style="margin-bottom: 20px; font-weight: 500;">Manage Parts</h2>
+                <p style="color: var(--secondary-text); margin-bottom: 15px;">If you made a mistake entering a part, you can delete it below and re-add it with the correct info.</p>
+                <div id="manage-list">Loading parts...</div>
+            </div>
+
         </main>
     </div>
 
@@ -189,6 +195,52 @@
             document.getElementById(`nav-${section}`).classList.add('active');
 
             if (section === 'part') loadVehicles();
+            if (section === 'manage') loadManageParts();
+        }
+
+        // Manage Parts Logic
+        async function loadManageParts() {
+            try {
+                const res = await fetch('/api/parts/all');
+                const parts = await res.json();
+                const list = document.getElementById('manage-list');
+                if (parts.length === 0) {
+                    list.innerHTML = "<p>No parts found.</p>";
+                    return;
+                }
+                
+                let html = '<table style="width:100%; border-collapse: collapse; text-align: left;">';
+                html += '<tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><th style="padding:10px; color:#888;">Part #</th><th style="color:#888;">Name</th><th style="color:#888;">Action</th></tr>';
+                parts.forEach(p => {
+                    html += `
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                        <td style="padding:10px;">${p.part_number}</td>
+                        <td>${p.name} <span style="font-size:0.8em; color:#666;">(${p.category})</span></td>
+                        <td>
+                            <button onclick="deletePart(${p.id})" style="background:#ff4757; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-weight:bold;">Delete</button>
+                        </td>
+                    </tr>`;
+                });
+                html += '</table>';
+                list.innerHTML = html;
+            } catch(e) {
+                document.getElementById('manage-list').innerHTML = "<p>Error loading parts.</p>";
+            }
+        }
+
+        async function deletePart(id) {
+            if (!confirm("Are you sure you want to completely delete this part? This cannot be undone.")) return;
+            try {
+                const res = await fetch(`/api/parts/${id}`, { method: 'DELETE' });
+                if (res.ok) {
+                    loadManageParts();
+                    loadSuggestions();
+                } else {
+                    alert("Failed to delete part.");
+                }
+            } catch(e) {
+                console.error(e);
+            }
         }
 
         // Add Vehicle
