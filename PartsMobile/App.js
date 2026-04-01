@@ -130,27 +130,27 @@ export default function App() {
           LEFT JOIN part_compatibility pc ON p.id = pc.oem_part_id
           LEFT JOIN parts gp ON pc.genuine_part_number = gp.part_number
           LEFT JOIN vehicles v ON p.vehicle_id = v.id OR gp.vehicle_id = v.id
-          WHERE p.part_number LIKE ? 
-             OR p.name LIKE ?
-             OR p.description LIKE ?
-             OR p.brand LIKE ?
-             OR p.engine_type LIKE ?
-             OR v.brand LIKE ?
-             OR v.model LIKE ?
-             OR v.submodel LIKE ?
-             OR v.engine_type LIKE ?
-             OR pc.genuine_part_number LIKE ?
+          WHERE UPPER(p.part_number) LIKE ? 
+             OR UPPER(p.name) LIKE ?
+             OR UPPER(p.description) LIKE ?
+             OR UPPER(p.brand) LIKE ?
+             OR UPPER(p.engine_type) LIKE ?
+             OR UPPER(v.brand) LIKE ?
+             OR UPPER(v.model) LIKE ?
+             OR UPPER(v.submodel) LIKE ?
+             OR UPPER(v.engine_type) LIKE ?
+             OR UPPER(pc.genuine_part_number) LIKE ?
              OR p.part_number IN (
                  SELECT pc2.genuine_part_number 
                  FROM part_compatibility pc2 
                  JOIN parts p2 ON pc2.oem_part_id = p2.id 
-                 WHERE p2.part_number LIKE ? 
-                    OR p2.name LIKE ?
-                    OR p2.description LIKE ?
+                 WHERE UPPER(p2.part_number) LIKE ? 
+                    OR UPPER(p2.name) LIKE ?
+                    OR UPPER(p2.description) LIKE ?
              )
           GROUP BY p.id
       `;
-      const q = `%${partQuery}%`;
+      const q = `%${partQuery.toUpperCase()}%`;
       const params = [q, q, q, q, q, q, q, q, q, q, q, q, q];
       const res = await executeQuery(query, params);
       setResults(res || []);
@@ -175,11 +175,11 @@ export default function App() {
     setHasSearched(true);
 
     try {
-      let vQuery = `SELECT id, engine_type FROM vehicles WHERE LOWER(brand) = ? AND model = ? AND submodel = ?`;
-      let vParams = [vBrand.toLowerCase(), vModel, vSubmodel];
+      let vQuery = `SELECT id, engine_type FROM vehicles WHERE UPPER(brand) = UPPER(?) AND UPPER(model) = UPPER(?) AND UPPER(submodel) = UPPER(?)`;
+      let vParams = [vBrand, vModel, vSubmodel];
       
       if (vEngine.trim()) {
-          vQuery += ` AND engine_type = ? COLLATE NOCASE`;
+          vQuery += ` AND UPPER(engine_type) = UPPER(?)`;
           vParams.push(vEngine.trim());
       }
       
@@ -201,13 +201,13 @@ export default function App() {
           conditions.push(`(pc.genuine_part_number IN (SELECT part_number FROM parts WHERE vehicle_id = ?))`);
           params.push(vehicleId, vehicleId);
           if (vehicleEngine) {
-              conditions.push(`(p.engine_type = ? COLLATE NOCASE AND p.engine_type != '')`);
+              conditions.push(`(UPPER(p.engine_type) = UPPER(?) AND p.engine_type != '')`);
               params.push(vehicleEngine);
           }
       }
 
       if (vEngine.trim()) {
-          conditions.push(`(p.engine_type = ? COLLATE NOCASE AND p.engine_type != '')`);
+          conditions.push(`(UPPER(p.engine_type) = UPPER(?) AND p.engine_type != '')`);
           params.push(vEngine.trim());
       }
       
@@ -229,8 +229,8 @@ export default function App() {
       `;
 
       if (vCategory && vCategory.toLowerCase() !== 'all') {
-          query += ` AND LOWER(p.category) = ?`;
-          params.push(vCategory.toLowerCase());
+          query += ` AND UPPER(p.category) = UPPER(?)`;
+          params.push(vCategory);
       }
       query += ` GROUP BY p.id`;
 

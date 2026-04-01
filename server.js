@@ -178,27 +178,27 @@ app.get('/api/parts/search', (req, res) => {
         LEFT JOIN part_compatibility pc ON p.id = pc.oem_part_id
         LEFT JOIN parts gp ON pc.genuine_part_number = gp.part_number
         LEFT JOIN vehicles v ON p.vehicle_id = v.id OR gp.vehicle_id = v.id
-        WHERE p.part_number LIKE ? 
-           OR p.name LIKE ?
-           OR p.description LIKE ?
-           OR p.brand LIKE ?
-           OR p.engine_type LIKE ?
-           OR v.brand LIKE ?
-           OR v.model LIKE ?
-           OR v.submodel LIKE ?
-           OR v.engine_type LIKE ?
-           OR pc.genuine_part_number LIKE ?
+        WHERE UPPER(p.part_number) LIKE ? 
+           OR UPPER(p.name) LIKE ?
+           OR UPPER(p.description) LIKE ?
+           OR UPPER(p.brand) LIKE ?
+           OR UPPER(p.engine_type) LIKE ?
+           OR UPPER(v.brand) LIKE ?
+           OR UPPER(v.model) LIKE ?
+           OR UPPER(v.submodel) LIKE ?
+           OR UPPER(v.engine_type) LIKE ?
+           OR UPPER(pc.genuine_part_number) LIKE ?
            OR p.part_number IN (
                SELECT pc2.genuine_part_number 
                FROM part_compatibility pc2 
                JOIN parts p2 ON pc2.oem_part_id = p2.id 
-               WHERE p2.part_number LIKE ?
-                  OR p2.name LIKE ?
-                  OR p2.description LIKE ?
+               WHERE UPPER(p2.part_number) LIKE ?
+                  OR UPPER(p2.name) LIKE ?
+                  OR UPPER(p2.description) LIKE ?
            )
         GROUP BY p.id
     `;
-    const s = `%${q}%`;
+    const s = `%${q.toUpperCase()}%`;
     db.all(query, [s, s, s, s, s, s, s, s, s, s, s, s, s], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(rows);
@@ -209,10 +209,10 @@ app.get('/api/parts/search', (req, res) => {
 app.get('/api/parts/vehicle', (req, res) => {
     const { brand, model, submodel, engine_type, category } = req.query;
 
-    let vQuery = `SELECT id, engine_type FROM vehicles WHERE brand = ? AND model = ? AND submodel = ?`;
-    let vParams = [brand.toLowerCase(), model, submodel];
+    let vQuery = `SELECT id, engine_type FROM vehicles WHERE UPPER(brand) = UPPER(?) AND UPPER(model) = UPPER(?) AND UPPER(submodel) = UPPER(?)`;
+    let vParams = [brand, model, submodel];
     if (engine_type) {
-        vQuery += ` AND engine_type = ?`;
+        vQuery += ` AND UPPER(engine_type) = UPPER(?)`;
         vParams.push(engine_type);
     }
 
@@ -242,12 +242,12 @@ app.get('/api/parts/vehicle', (req, res) => {
                 conditions.push(`(p.vehicle_id = ?)`, `(pc.genuine_part_number IN (SELECT part_number FROM parts WHERE vehicle_id = ?))`);
                 params.push(vehicle.id, vehicle.id);
                 if (vehicle.engine_type) {
-                    conditions.push(`(p.engine_type = ? COLLATE NOCASE AND p.engine_type != '')`);
+                    conditions.push(`(UPPER(p.engine_type) = UPPER(?) AND p.engine_type != '')`);
                     params.push(vehicle.engine_type);
                 }
             }
             if (engine_type) {
-                conditions.push(`(p.engine_type = ? COLLATE NOCASE AND p.engine_type != '')`);
+                conditions.push(`(UPPER(p.engine_type) = UPPER(?) AND p.engine_type != '')`);
                 params.push(engine_type);
             }
 
@@ -258,7 +258,7 @@ app.get('/api/parts/vehicle', (req, res) => {
             query += conditions.join(' OR ') + ` )`;
 
             if (category && category !== 'All') {
-                query += ` AND p.category = ?`;
+                query += ` AND UPPER(p.category) = UPPER(?)`;
                 params.push(category);
             }
             query += ` GROUP BY p.id`;
