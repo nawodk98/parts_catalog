@@ -133,6 +133,12 @@ export default function App() {
           WHERE p.part_number LIKE ? 
              OR p.name LIKE ?
              OR p.description LIKE ?
+             OR p.brand LIKE ?
+             OR p.engine_type LIKE ?
+             OR v.brand LIKE ?
+             OR v.model LIKE ?
+             OR v.submodel LIKE ?
+             OR v.engine_type LIKE ?
              OR pc.genuine_part_number LIKE ?
              OR p.part_number IN (
                  SELECT pc2.genuine_part_number 
@@ -145,7 +151,7 @@ export default function App() {
           GROUP BY p.id
       `;
       const q = `%${partQuery}%`;
-      const params = [q, q, q, q, q, q, q];
+      const params = [q, q, q, q, q, q, q, q, q, q, q, q, q];
       const res = await executeQuery(query, params);
       setResults(res || []);
     } catch (e) {
@@ -314,7 +320,7 @@ export default function App() {
             style={[styles.tab, mode === 'part' && styles.activeTab]} 
             onPress={() => { setMode('part'); setResults([]); setHasSearched(false); }}
           >
-            <Text style={[styles.tabText, mode === 'part' && styles.activeTabText]}>By Part #</Text>
+            <Text style={[styles.tabText, mode === 'part' && styles.activeTabText]}>Universal Search</Text>
           </TouchableOpacity>
           <TouchableOpacity 
             style={[styles.tab, mode === 'vehicle' && styles.activeTab]} 
@@ -329,14 +335,14 @@ export default function App() {
             <View>
               <TextInput 
                 style={styles.input} 
-                placeholder="Enter Part Number..." 
+                placeholder="Enter Part #, Vehicle, or Engine..." 
                 placeholderTextColor="#666"
                 value={partQuery} 
                 onChangeText={setPartQuery}
                 onSubmitEditing={searchPartNumber}
               />
               <TouchableOpacity style={styles.primaryButton} onPress={searchPartNumber}>
-                <Text style={styles.buttonText}>Find Part (Offline)</Text>
+                <Text style={styles.buttonText}>Find Part / Vehicle (Offline)</Text>
               </TouchableOpacity>
             </View>
           ) : (

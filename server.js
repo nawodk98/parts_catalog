@@ -181,6 +181,12 @@ app.get('/api/parts/search', (req, res) => {
         WHERE p.part_number LIKE ? 
            OR p.name LIKE ?
            OR p.description LIKE ?
+           OR p.brand LIKE ?
+           OR p.engine_type LIKE ?
+           OR v.brand LIKE ?
+           OR v.model LIKE ?
+           OR v.submodel LIKE ?
+           OR v.engine_type LIKE ?
            OR pc.genuine_part_number LIKE ?
            OR p.part_number IN (
                SELECT pc2.genuine_part_number 
@@ -192,8 +198,8 @@ app.get('/api/parts/search', (req, res) => {
            )
         GROUP BY p.id
     `;
-    const searchString = `%${q}%`;
-    db.all(query, [searchString, searchString, searchString, searchString, searchString, searchString, searchString], (err, rows) => {
+    const s = `%${q}%`;
+    db.all(query, [s, s, s, s, s, s, s, s, s, s, s, s, s], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(rows);
     });
