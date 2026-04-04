@@ -80,11 +80,30 @@
         </header>
 
         <main class="main-content">
-            <div class="admin-nav">
+            <div class="admin-nav" id="admin-nav" style="display: none;">
                 <button class="admin-btn active" id="nav-vehicle" onclick="switchSection('vehicle')">Add Vehicle</button>
                 <button class="admin-btn" id="nav-part" onclick="switchSection('part')">Add Part</button>
                 <button class="admin-btn" id="nav-manage" onclick="switchSection('manage')">Manage Parts</button>
-                <a href="/" style="margin-left:auto; color: var(--accent-glow); text-decoration: none;">&larr; Back to App</a>
+                <button class="admin-btn" id="nav-users" onclick="switchSection('users')">Manage Users</button>
+                <a href="/" style="margin-left:auto; margin-right:15px; color: var(--accent-glow); text-decoration: none;">&larr; Back to App</a>
+                <button class="admin-btn" onclick="logout()" style="padding: 5px 10px;">Logout</button>
+            </div>
+
+            <!-- Login Form -->
+            <div id="section-login" class="form-section active form-wrapper">
+                <h2 style="margin-bottom: 20px; font-weight: 500;">Admin Login</h2>
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label>Username</label>
+                        <input type="text" id="login-username" class="premium-input" required autofocus>
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="login-password" class="premium-input" required>
+                    </div>
+                    <button type="submit" class="btn-primary" style="width: 100%; justify-content: center;">Login</button>
+                    <p id="login-error" class="error-msg">Invalid credentials.</p>
+                </form>
             </div>
 
             <!-- Datalists for Autocomplete -->
@@ -98,7 +117,7 @@
             <datalist id="dl-engine"></datalist>
 
             <!-- Vehicle Form -->
-            <div id="section-vehicle" class="form-section active form-wrapper">
+            <div id="section-vehicle" class="form-section form-wrapper">
                 <h2 style="margin-bottom: 20px; font-weight: 500;">Create Vehicle Configuration</h2>
                 <form id="vehicleForm">
                     <div class="form-group">
@@ -185,10 +204,42 @@
                 <div id="manage-list">Loading parts...</div>
             </div>
 
+            <!-- Manage Users Form -->
+            <div id="section-users" class="form-section form-wrapper" style="max-height: 500px; overflow-y: auto;">
+                <h2 style="margin-bottom: 20px; font-weight: 500;">Manage Users</h2>
+                <div id="users-list" style="margin-bottom: 20px;">Loading users...</div>
+                <h3 style="margin-bottom: 15px; font-weight: 500; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">Add New User</h3>
+                <form id="userForm">
+                    <div class="form-group">
+                        <label>Username</label>
+                        <input type="text" id="u-username" class="premium-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="u-password" class="premium-input" required>
+                    </div>
+                    <button type="submit" class="btn-primary" style="width: 100%; justify-content: center;">Save User</button>
+                    <p id="u-success" class="success-msg">User added successfully!</p>
+                    <p id="u-error" class="error-msg">Error saving user.</p>
+                </form>
+            </div>
+
         </main>
     </div>
 
     <script>
+        async function apiFetch(url, options = {}) {
+            if (!options.headers) options.headers = {};
+            const token = localStorage.getItem('adminToken');
+            if (token) {
+                options.headers['Authorization'] = 'Bearer ' + token;
+            }
+            const res = await fetch(url, options);
+            if (res.status === 401 && url !== '/api/login' && url !== '/api/users/me') {
+                logout();
+            }
+            return res;
+        }
         // Navigation Logic
         function switchSection(section) {
             document.querySelectorAll('.form-section').forEach(el => el.classList.remove('active'));
@@ -203,7 +254,7 @@
         // Manage Parts Logic
         async function loadManageParts() {
             try {
-                const res = await fetch('/api/parts/all');
+                const res = await apiFetch('/api/parts/all');
                 const parts = await res.json();
                 const list = document.getElementById('manage-list');
                 if (parts.length === 0) {
@@ -234,7 +285,7 @@
         async function deletePart(id) {
             if (!confirm("Are you sure you want to completely delete this part? This cannot be undone.")) return;
             try {
-                const res = await fetch(`/api/parts/${id}`, { method: 'DELETE' });
+                const res = await apiFetch(`/api/parts/${id}`, { method: 'DELETE' });
                 if (res.ok) {
                     loadManageParts();
                     loadSuggestions();
@@ -251,7 +302,7 @@
 
         async function editPart(id) {
             try {
-                const res = await fetch(`/api/parts/${id}`);
+                const res = await apiFetch(`/api/parts/${id}`);
                 const part = await res.json();
                 
                 editingPartId = id;
@@ -298,7 +349,7 @@
             };
 
             try {
-                const res = await fetch('/api/vehicles', {
+                const res = await apiFetch('/api/vehicles', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data)
@@ -323,7 +374,7 @@
         // Autocomplete loader
         async function loadSuggestions() {
             try {
-                const res = await fetch('/api/suggestions');
+                const res = await apiFetch('/api/suggestions');
                 const data = await res.json();
                 
                 const populate = (id, items) => {
@@ -343,13 +394,11 @@
                 console.error("Failed to load suggestions", e);
             }
         }
-        
-        loadSuggestions();
 
         // Load Vehicles for Part assignment
         async function loadVehicles() {
             try {
-                const res = await fetch('/api/vehicles/raw');
+                const res = await apiFetch('/api/vehicles/raw');
                 const vehicles = await res.json();
                 const sel = document.getElementById('p-vehicle-id');
                 sel.innerHTML = '<option value="">-- None / Engine Only --</option>';
@@ -400,7 +449,7 @@
                 const endpoint = isUpdating ? `/api/parts/${editingPartId}` : '/api/parts';
                 const method = isUpdating ? 'PUT' : 'POST';
 
-                const res = await fetch(endpoint, {
+                const res = await apiFetch(endpoint, {
                     method: method,
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data)
@@ -433,6 +482,138 @@
                 document.getElementById('p-error').style.display = 'block';
             }
         });
+
+        // --- AUTH & USERS LOGIC ---
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('login-username').value;
+            const password = document.getElementById('login-password').value;
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    localStorage.setItem('adminToken', data.token);
+                    document.getElementById('login-error').style.display = 'none';
+                    checkAuth();
+                } else {
+                    document.getElementById('login-error').style.display = 'block';
+                }
+            } catch (err) {
+                document.getElementById('login-error').style.display = 'block';
+            }
+        });
+
+        function logout() {
+            localStorage.removeItem('adminToken');
+            document.getElementById('admin-nav').style.display = 'none';
+            document.querySelectorAll('.form-section').forEach(el => el.classList.remove('active'));
+            document.getElementById('section-login').classList.add('active');
+        }
+
+        async function checkAuth() {
+            const token = localStorage.getItem('adminToken');
+            if (!token) {
+                logout();
+                return;
+            }
+            try {
+                const res = await apiFetch('/api/users/me');
+                if (res.ok) {
+                    document.getElementById('section-login').classList.remove('active');
+                    document.getElementById('admin-nav').style.display = 'flex';
+                    switchSection('vehicle');
+                    loadSuggestions();
+                } else {
+                    logout();
+                }
+            } catch (e) {
+                logout();
+            }
+        }
+
+        // On Load
+        checkAuth();
+
+        async function loadUsers() {
+            try {
+                const res = await apiFetch('/api/users');
+                const users = await res.json();
+                const list = document.getElementById('users-list');
+                
+                let html = '<table style="width:100%; border-collapse: collapse; text-align: left;">';
+                html += '<tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><th style="padding:10px; color:#888;">ID</th><th style="color:#888;">Username</th><th style="color:#888;">Action</th></tr>';
+                users.forEach(u => {
+                    html += `
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                        <td style="padding:10px;">${u.id}</td>
+                        <td>${u.username}</td>
+                        <td>
+                            <button onclick="deleteUser(${u.id})" style="background:#ff4757; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-weight:bold;">Delete</button>
+                        </td>
+                    </tr>`;
+                });
+                html += '</table>';
+                list.innerHTML = html;
+            } catch(e) {
+                document.getElementById('users-list').innerHTML = "<p>Error loading users.</p>";
+            }
+        }
+
+        async function deleteUser(id) {
+            if (!confirm("Delete this user?")) return;
+            try {
+                const res = await apiFetch(`/api/users/${id}`, { method: 'DELETE' });
+                if (res.ok) {
+                    loadUsers();
+                } else {
+                    const data = await res.json();
+                    alert("Error: " + (data.error || "Failed to delete user"));
+                }
+            } catch(e) {
+                alert("Failed to delete user.");
+            }
+        }
+
+        document.getElementById('userForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = {
+                username: document.getElementById('u-username').value,
+                password: document.getElementById('u-password').value
+            };
+            try {
+                const res = await apiFetch('/api/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (res.ok) {
+                    document.getElementById('u-success').style.display = 'block';
+                    document.getElementById('u-error').style.display = 'none';
+                    document.getElementById('u-username').value = '';
+                    document.getElementById('u-password').value = '';
+                    setTimeout(() => document.getElementById('u-success').style.display = 'none', 3000);
+                    loadUsers();
+                } else {
+                    document.getElementById('u-error').textContent = (await res.json()).error;
+                    document.getElementById('u-error').style.display = 'block';
+                }
+            } catch (err) {
+                document.getElementById('u-error').style.display = 'block';
+            }
+        });
+
+        // Ensure loadUsers happens when users section is opened
+        const originalSwitchSection = switchSection;
+        switchSection = function(section) {
+            originalSwitchSection(section);
+            if (section === 'users') loadUsers();
+        };
     </script>
 </body>
 

@@ -3,6 +3,11 @@ const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const cors = require('cors');
 const fs = require('fs');
+const crypto = require('crypto');
+
+function hashPassword(password) {
+    return crypto.createHash('sha256').update(password).digest('hex');
+}
 
 const app = express();
 // Connect to SQLite Database
@@ -48,6 +53,20 @@ const db = new sqlite3.Database(dbPath, (err) => {
              FOREIGN KEY (oem_part_id) REFERENCES parts (id),
              UNIQUE(oem_part_id, genuine_part_number)
          )`);
+
+        db.run(`CREATE TABLE IF NOT EXISTS users (
+             id INTEGER PRIMARY KEY AUTOINCREMENT,
+             username TEXT UNIQUE,
+             password TEXT,
+             token TEXT
+         )`, () => {
+             db.get("SELECT COUNT(*) AS count FROM users", (err, row) => {
+                 if (row && row.count === 0) {
+                     const hash = hashPassword('admin');
+                     db.run("INSERT INTO users (username, password) VALUES ('admin', ?)", [hash]);
+                 }
+             });
+         });
     }
 });
 
@@ -56,6 +75,18 @@ app.use(cors());
 app.use(express.json());
 // Serve frontend files
 app.use(express.static(path.join(__dirname)));
+
+// Auth Middleware
+const authenticate = (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return res.status(401).json({ error: 'Unauthorized' });
+    const token = authHeader.split(' ')[1];
+    db.get('SELECT * FROM users WHERE token = ?', [token], (err, user) => {
+        if (err || !user) return res.status(401).json({ error: 'Unauthorized' });
+        req.user = user;
+        next();
+    });
+};
 
 // === API Routes for Adding Data (Admin) ===
 
@@ -94,7 +125,7 @@ app.get('/api/suggestions', async (req, res) => {
 });
 
 // Add a new vehicle
-app.post('/api/vehicles', (req, res) => {
+app.post('/api/vehicles', authenticate, (req, res) => {
     const { brand, model, submodel, engine_type } = req.body;
     db.run(`INSERT INTO vehicles (brand, model, submodel, engine_type) VALUES (?, ?, ?, ?)`,
         [brand.toLowerCase(), model, submodel, engine_type || ''],
@@ -106,7 +137,7 @@ app.post('/api/vehicles', (req, res) => {
 });
 
 // Add a new part
-app.post('/api/parts', (req, res) => {
+app.post('/api/parts', authenticate, (req, res) => {
     const { part_type, brand, part_number, name, description, category, vehicle_id, engine_type, compatible_genuine_numbers } = req.body;
     
     // Allow saving part even if vehicle_id is missing, as long as it has an engine_type
@@ -304,7 +335,7 @@ app.get('/api/parts/:id', (req, res) => {
 });
 
 // Update a part
-app.put('/api/parts/:id', (req, res) => {
+app.put('/api/parts/:id', authenticate, (req, res) => {
     const pId = req.params.id;
     const { part_type, brand, part_number, name, description, category, vehicle_id, engine_type, compatible_genuine_numbers } = req.body;
     
@@ -334,7 +365,7 @@ app.put('/api/parts/:id', (req, res) => {
 });
 
 // Delete a part
-app.delete('/api/parts/:id', (req, res) => {
+app.delete('/api/parts/:id', authenticate, (req, res) => {
     const id = req.params.id;
     db.run("DELETE FROM part_compatibility WHERE oem_part_id = ?", [id], (err) => {
         if (err) return res.status(500).json({ error: err.message });
@@ -345,6 +376,75 @@ app.delete('/api/parts/:id', (req, res) => {
     });
 });
 
+
+// === API Routes for User Management ===
+
+app.post('/api/login', (req, res) => {
+    const { username, password } = req.body;
+    const hashedPassword = hashPassword(password);
+    db.get("SELECT id FROM users WHERE username = ? AND password = ?", [username, hashedPassword], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!row) return res.status(401).json({ error: 'Invalid username or password' });
+        
+        const token = crypto.randomBytes(32).toString('hex');
+        db.run("UPDATE users SET token = ? WHERE id = ?", [token, row.id], (err2) => {
+            if (err2) return res.status(500).json({ error: err2.message });
+            res.json({ token, username });
+        });
+    });
+});
+
+app.post('/api/logout', authenticate, (req, res) => {
+    db.run("UPDATE users SET token = NULL WHERE id = ?", [req.user.id], () => {
+        res.json({ success: true });
+    });
+});
+
+app.get('/api/users/me', authenticate, (req, res) => res.json({ id: req.user.id, username: req.user.username }));
+
+app.get('/api/users', authenticate, (req, res) => {
+    db.all("SELECT id, username FROM users", [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows);
+    });
+});
+
+app.post('/api/users', authenticate, (req, res) => {
+    const { username, password } = req.body;
+    if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
+    const hashedPassword = hashPassword(password);
+    db.run("INSERT INTO users (username, password) VALUES (?, ?)", [username, hashedPassword], function(err) {
+        if (err) return res.status(400).json({ error: 'Username may already exist' });
+        res.status(201).json({ id: this.lastID, username });
+    });
+});
+
+app.put('/api/users/:id', authenticate, (req, res) => {
+    const { username, password } = req.body;
+    const id = req.params.id;
+    
+    if (password) {
+         const hashedPassword = hashPassword(password);
+         db.run("UPDATE users SET username = ?, password = ?, token = NULL WHERE id = ?", [username, hashedPassword, id], function(err) {
+             if (err) return res.status(400).json({ error: err.message });
+             res.json({ success: true });
+         });
+    } else {
+         db.run("UPDATE users SET username = ? WHERE id = ?", [username, id], function(err) {
+             if (err) return res.status(400).json({ error: err.message });
+             res.json({ success: true });
+         });
+    }
+});
+
+app.delete('/api/users/:id', authenticate, (req, res) => {
+    const id = req.params.id;
+    if (req.user.id == id) return res.status(400).json({ error: 'Cannot delete yourself' });
+    db.run("DELETE FROM users WHERE id = ?", [id], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ success: true });
+    });
+});
 
 const server = app.listen(0, '0.0.0.0', () => {
     const port = server.address().port;
