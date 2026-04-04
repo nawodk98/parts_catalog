@@ -1,7 +1,9 @@
+require('dotenv').config();
 const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const cors = require('cors');
+const rateLimit = require('express-rate-limit');
 const fs = require('fs');
 const crypto = require('crypto');
 
@@ -11,7 +13,7 @@ function hashPassword(password) {
 
 const app = express();
 // Connect to SQLite Database
-const dbPath = path.join(__dirname, 'parts.sqlite');
+const dbPath = process.env.DB_PATH || path.join(__dirname, 'parts.sqlite');
 const db = new sqlite3.Database(dbPath, (err) => {
     if (err) {
         console.error('Error opening database', err.message);
@@ -71,8 +73,21 @@ const db = new sqlite3.Database(dbPath, (err) => {
 });
 
 // Middleware
-app.use(cors());
+const corsOptions = {
+    origin: process.env.ALLOWED_ORIGIN || '*',
+    optionsSuccessStatus: 200
+};
+app.use(cors(corsOptions));
 app.use(express.json());
+
+// API Rate Limiting
+const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 200, // Limit each IP to 200 requests per windowMs
+    message: "Too many requests from this IP, please try again later."
+});
+app.use('/api/', apiLimiter);
+
 // Serve frontend files
 app.use(express.static(path.join(__dirname)));
 
@@ -446,7 +461,19 @@ app.delete('/api/users/:id', authenticate, (req, res) => {
     });
 });
 
-const server = app.listen(0, '0.0.0.0', () => {
+// Global 404 Handler for undefined API routes
+app.use('/api/*', (req, res) => {
+    res.status(404).json({ error: "API Endpoint not found" });
+});
+
+// Global Error Handler
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(500).json({ error: "Internal Server Error" });
+});
+
+const PORT = process.env.PORT || 0;
+const server = app.listen(PORT, '0.0.0.0', () => {
     const port = server.address().port;
     const url = `http://localhost:${port}`;
     console.log(`\n=================================================`);
