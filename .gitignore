@@ -1,0 +1,17 @@
+node_modules/
+.env
+
+# Database files
+*.sqlite
+*.sqlite3
+*.db
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Mobile Build files
+PartsMobile/.expo/
+PartsMobile/node_modules/
+PartsMobile/dist/
+PartsMobile/build/
