@@ -74,10 +74,13 @@ function initDB() {
                  }
              });
          });
+    }
     });
 }
 
 initDB();
+
+
 
 // Middleware
 const corsOptions = {

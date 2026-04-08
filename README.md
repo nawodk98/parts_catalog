@@ -88,6 +88,21 @@ The server will start on `http://localhost:3000`.
 - **User Interface**: Open `http://localhost:3000` in your web browser.
 - **Admin Dashboard**: Open `http://localhost:3000/admin.html` in your web browser.
 
+### 🌐 Accessing Over Local Network (Wi-Fi)
+
+Because this application runs as a local web server, any device (phone, laptop, iPad) connected to the same Wi-Fi router can access the application.
+
+1. Start the server on the main installed computer using `start_app.bat` (or `node server.js`).
+2. Look at the black terminal window. It will automatically detect and display your network IP, e.g., `http://192.168.1.15:3000`.
+3. Type that exact URL into the web browser of any other device on your network to instantly access the parts catalog remotely.
+
+### 💾 Backup & Restore Database
+
+Your entire database is stored seamlessly in a single file (`parts.sqlite`). You can easily transport and sync it between computers using the built-in feature.
+
+1. **Backup**: Log into the Admin Dashboard and click the **Backup** tab. Click **Download Database** to instantly save a copy of all your parts and data directly to your computer.
+2. **Restore**: Go to a different computer (or use the remote access method above). Log into that computer's Admin Dashboard, go to the **Backup** tab, and click **Select File & Restore** to cleanly overwrite its catalog with your new parts.
+
 ## Project Structure
 
 ```
