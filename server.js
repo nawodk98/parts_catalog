@@ -14,7 +14,10 @@ function hashPassword(password) {
 const app = express();
 // Connect to SQLite Database
 const dbPath = process.env.DB_PATH || path.join(__dirname, 'parts.sqlite');
-const db = new sqlite3.Database(dbPath, (err) => {
+let db;
+
+function initDB() {
+    db = new sqlite3.Database(dbPath, (err) => {
     if (err) {
         console.error('Error opening database', err.message);
     } else {
@@ -71,8 +74,10 @@ const db = new sqlite3.Database(dbPath, (err) => {
                  }
              });
          });
-    }
-});
+    });
+}
+
+initDB();
 
 // Middleware
 const corsOptions = {
@@ -231,6 +236,7 @@ app.get('/api/parts/search', (req, res) => {
            OR UPPER(p.description) LIKE ?
            OR UPPER(p.brand) LIKE ?
            OR UPPER(p.engine_type) LIKE ?
+           OR UPPER(p.specifications) LIKE ?
            OR UPPER(v.brand) LIKE ?
            OR UPPER(v.model) LIKE ?
            OR UPPER(v.submodel) LIKE ?
@@ -243,11 +249,12 @@ app.get('/api/parts/search', (req, res) => {
                WHERE UPPER(p2.part_number) LIKE ?
                   OR UPPER(p2.name) LIKE ?
                   OR UPPER(p2.description) LIKE ?
+                  OR UPPER(p2.specifications) LIKE ?
            )
         GROUP BY p.id
     `;
     const s = `%${q.toUpperCase()}%`;
-    db.all(query, [s, s, s, s, s, s, s, s, s, s, s, s, s], (err, rows) => {
+    db.all(query, [s, s, s, s, s, s, s, s, s, s, s, s, s, s, s], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(rows);
     });
@@ -318,9 +325,32 @@ app.get('/api/parts/vehicle', (req, res) => {
         });
 });
 // Download Database Endpoint for Offline Mobile Sync
-app.get('/api/database/download', (req, res) => {
+app.get('/api/database/download', authenticate, (req, res) => {
     res.download(dbPath, 'parts.sqlite', (err) => {
         if (err) console.error("Error downloading database:", err);
+    });
+});
+
+// Restore Database Endpoint
+app.post('/api/database/restore', authenticate, express.raw({ type: 'application/octet-stream', limit: '100mb' }), (req, res) => {
+    if (!req.body || req.body.length === 0) return res.status(400).json({ error: 'No database file provided.' });
+    
+    // Close existing connection safely
+    db.close((err) => {
+        if (err) console.error("Error closing DB prior to restore:", err);
+        
+        // Overwrite the database file
+        fs.writeFile(dbPath, req.body, (writeErr) => {
+            if (writeErr) {
+                console.error("Failed to restore database file:", writeErr);
+                initDB(); // re-init old DB
+                return res.status(500).json({ error: 'Failed to save the uploaded database.' });
+            }
+            
+            console.log("Database file replaced successfully. Reconnecting...");
+            initDB();
+            res.json({ success: true, message: 'Database successfully restored.' });
+        });
     });
 });
 
@@ -478,9 +508,32 @@ const PORT = process.env.PORT || 0;
 const server = app.listen(PORT, '0.0.0.0', () => {
     const port = server.address().port;
     const url = `http://localhost:${port}`;
+    const os = require('os');
+    const interfaces = os.networkInterfaces();
+    const addresses = [];
+    for (let k in interfaces) {
+        for (let k2 in interfaces[k]) {
+            let address = interfaces[k][k2];
+            if (address.family === 'IPv4' && !address.internal) {
+                addresses.push(address.address);
+            }
+        }
+    }
+
     console.log(`\n=================================================`);
-    console.log(`🚀 API Server is running at ${url}`);
-    console.log(`🛠️  Admin Dashboard accessible at ${url}/admin.html`);
+    console.log(`🚀 API Server is running on Port: ${port}`);
+    console.log(`💻 Access on this PC:`);
+    console.log(`   -> ${url}`);
+    console.log(`   -> Admin Dashboard: ${url}/admin.html`);
+    
+    if (addresses.length > 0) {
+        console.log(`\n🌐 Access over network (Wi-Fi/LAN):`);
+        console.log(`   (Use these links on your laptop when connected to the same router)`);
+        addresses.forEach(ip => {
+            console.log(`   -> http://${ip}:${port}`);
+            console.log(`   -> Admin Dashboard: http://${ip}:${port}/admin.html`);
+        });
+    }
     console.log(`=================================================\n`);
 
     // Automatically open the website in the default browser

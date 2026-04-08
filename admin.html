@@ -93,6 +93,7 @@
                 <button class="admin-btn" id="nav-part" onclick="switchSection('part')">Add Part</button>
                 <button class="admin-btn" id="nav-manage" onclick="switchSection('manage')">Manage Parts</button>
                 <button class="admin-btn" id="nav-users" onclick="switchSection('users')">Manage Users</button>
+                <button class="admin-btn" id="nav-backup" onclick="switchSection('backup')" style="background: rgba(46, 213, 115, 0.1); border-color: #2ed573; color: #2ed573;">Backup</button>
                 <a href="/" style="margin-left:auto; margin-right:15px; color: var(--accent-glow); text-decoration: none;">&larr; Back to App</a>
                 <button class="admin-btn" onclick="logout()" style="padding: 5px 10px;">Logout</button>
             </div>
@@ -239,6 +240,30 @@
                     <p id="u-success" class="success-msg">User added successfully!</p>
                     <p id="u-error" class="error-msg">Error saving user.</p>
                 </form>
+            </div>
+
+            <!-- Backup / Restore Form -->
+            <div id="section-backup" class="form-section form-wrapper" style="max-height: 500px; overflow-y: auto;">
+                <h2 style="margin-bottom: 20px; font-weight: 500;">Download / Restore Database</h2>
+                <p style="color: var(--secondary-text); margin-bottom: 25px;">Export your complete database to sync across different computers, or upload a previously exported version to restore the contents and overwrite this PC's state.</p>
+                
+                <div style="display: flex; gap: 20px; align-items: stretch; flex-wrap: wrap;">
+                    <div style="flex: 1; padding: 20px; border: 1px dashed var(--card-border); border-radius: var(--border-radius-sm); text-align: center; min-width: 250px;">
+                         <i class="fa-solid fa-download" style="font-size: 2rem; color: #4facfe; margin-bottom: 15px;"></i>
+                         <h3 style="margin-bottom: 10px; font-weight: 500;">Backup / Download</h3>
+                         <p style="font-size: 0.9rem; color: var(--secondary-text); margin-bottom: 15px;">Save the latest 'parts.sqlite' to your computer.</p>
+                         <button onclick="downloadDatabase()" class="btn-primary" style="padding: 10px 20px; width: 100%; justify-content: center; background: #4facfe;">Download Database</button>
+                    </div>
+
+                    <div style="flex: 1; padding: 20px; border: 1px dashed var(--card-border); border-radius: var(--border-radius-sm); text-align: center; min-width: 250px;">
+                         <i class="fa-solid fa-upload" style="font-size: 2rem; color: #2ed573; margin-bottom: 15px;"></i>
+                         <h3 style="margin-bottom: 10px; font-weight: 500;">Restore / Upload</h3>
+                         <p style="font-size: 0.9rem; color: var(--secondary-text); margin-bottom: 15px;">Overwrites your current parts list with an uploaded .sqlite backup.</p>
+                         <input type="file" id="restore-file-input" style="display: none;" accept=".sqlite,.db">
+                         <button onclick="document.getElementById('restore-file-input').click()" class="btn-primary" style="padding: 10px 20px; width: 100%; justify-content: center; background: #2ed573;">Select File & Restore</button>
+                         <p id="restore-status" style="margin-top: 10px; font-size: 0.9rem; font-weight: bold;"></p>
+                    </div>
+                </div>
             </div>
 
         </main>
@@ -641,6 +666,64 @@
                 alert("Failed to delete user.");
             }
         }
+
+        // --- BACKUP & RESTORE LOGIC ---
+        async function downloadDatabase() {
+            const token = localStorage.getItem('adminToken');
+            const res = await fetch('/api/database/download', { headers: { 'Authorization': 'Bearer ' + token } });
+            if (res.ok) {
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'parts.sqlite';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+            } else {
+                alert('Failed to download database. Check authorization.');
+            }
+        }
+
+        document.getElementById('restore-file-input').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            if (!confirm(`WARNING: Restoring '${file.name}' will completely overwrite your existing database. Any changes made on this PC since your last backup will be lost forever. \n\nAre you sure you want to proceed?`)) {
+                e.target.value = '';
+                return;
+            }
+
+            const statusEl = document.getElementById('restore-status');
+            statusEl.textContent = 'Uploading and Restoring...';
+            statusEl.style.color = '#ffa502';
+
+            try {
+                const buffer = await file.arrayBuffer();
+                const token = localStorage.getItem('adminToken');
+                const res = await fetch('/api/database/restore', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/octet-stream', 'Authorization': 'Bearer ' + token },
+                    body: buffer
+                });
+
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    statusEl.textContent = 'Restore Complete!';
+                    statusEl.style.color = '#2ed573';
+                    alert('Database has been successfully restored! The page will now reload to apply changes.');
+                    window.location.reload();
+                } else {
+                    statusEl.textContent = 'Restore Failed';
+                    statusEl.style.color = '#ff4757';
+                    alert('Error: ' + data.error);
+                }
+            } catch(err) {
+                statusEl.textContent = 'Error during upload';
+                statusEl.style.color = '#ff4757';
+            }
+            e.target.value = '';
+        });
 
         document.getElementById('userForm').addEventListener('submit', async (e) => {
             e.preventDefault();
