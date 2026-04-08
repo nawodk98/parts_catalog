@@ -220,7 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
         loadingState.classList.add('hidden');
         resultsContent.classList.remove('hidden');
 
-        let html = `<h2 style="color: white; margin-bottom: 20px; font-weight: 500;">Results for <span style="color: var(--accent-glow);">${queryContext}</span></h2>`;
+        let html = `<h2 style="color: var(--primary-text); margin-bottom: 20px; font-weight: 500;">Results for <span style="color: var(--accent-glow);">${queryContext}</span></h2>`;
 
         if (!results || results.length === 0) {
             html += `<p style="color: var(--secondary-text); text-align: left;">No parts found matching your criteria. Try adjusting your search.</p>`;
@@ -264,6 +264,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 item.style.opacity = '1';
                 item.style.transform = 'translateY(0)';
             }, index * 80);
+        });
+    }
+
+    // --- Theme Toggle Logic ---
+    const themeToggle = document.getElementById('theme-toggle');
+    if (themeToggle) {
+        const themeIcon = themeToggle.querySelector('i');
+        
+        if (document.documentElement.getAttribute('data-theme') === 'light') {
+            themeIcon.classList.remove('fa-moon');
+            themeIcon.classList.add('fa-sun');
+        }
+
+        themeToggle.addEventListener('click', () => {
+            let theme = document.documentElement.getAttribute('data-theme');
+            theme = theme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', theme);
+            localStorage.setItem('theme', theme);
+            
+            if (theme === 'light') {
+                themeIcon.classList.remove('fa-moon');
+                themeIcon.classList.add('fa-sun');
+            } else {
+                themeIcon.classList.remove('fa-sun');
+                themeIcon.classList.add('fa-moon');
+            }
         });
     }
 

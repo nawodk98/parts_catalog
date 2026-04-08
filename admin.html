@@ -6,7 +6,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Dashboard - Parts Catalog</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
+    <script>
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+    </script>
     <style>
         .admin-nav {
             display: flex;
@@ -40,7 +45,7 @@
         }
 
         .form-wrapper {
-            background: rgba(255, 255, 255, 0.03);
+            background: var(--glass-bg);
             padding: 20px;
             border-radius: var(--border-radius-md);
             border: 1px solid var(--card-border);
@@ -74,9 +79,12 @@
             <div class="blur-blob blob-1"></div>
         </div>
 
-        <header class="main-header" style="margin-bottom: 1.5rem;">
+        <header class="main-header" style="margin-bottom: 1.5rem; position: relative;">
             <h1>Admin <span>Panel</span></h1>
             <p style="color: var(--secondary-text)">Add vehicles and parts to your database</p>
+            <button class="theme-toggle" id="theme-toggle" title="Toggle Light/Dark Mode" style="position: absolute; right: 0; top: 0;">
+                <i class="fa-solid fa-moon"></i>
+            </button>
         </header>
 
         <main class="main-content">
@@ -208,7 +216,7 @@
             <div id="section-users" class="form-section form-wrapper" style="max-height: 500px; overflow-y: auto;">
                 <h2 style="margin-bottom: 20px; font-weight: 500;">Manage Users</h2>
                 <div id="users-list" style="margin-bottom: 20px;">Loading users...</div>
-                <h3 style="margin-bottom: 15px; font-weight: 500; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">Add New User</h3>
+                <h3 style="margin-bottom: 15px; font-weight: 500; border-top: 1px solid var(--card-border); padding-top: 15px;">Add New User</h3>
                 <form id="userForm">
                     <div class="form-group">
                         <label>Username</label>
@@ -263,12 +271,12 @@
                 }
                 
                 let html = '<table style="width:100%; border-collapse: collapse; text-align: left;">';
-                html += '<tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><th style="padding:10px; color:#888;">Part #</th><th style="color:#888;">Name</th><th style="color:#888;">Action</th></tr>';
+                html += '<tr style="border-bottom: 1px solid var(--card-border);"><th style="padding:10px; color:var(--secondary-text);">Part #</th><th style="color:var(--secondary-text);">Name</th><th style="color:var(--secondary-text);">Action</th></tr>';
                 parts.forEach(p => {
                     html += `
-                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <tr style="border-bottom: 1px solid var(--card-border);">
                         <td style="padding:10px;">${p.part_number}</td>
-                        <td>${p.name} <span style="font-size:0.8em; color:#666;">(${p.category})</span></td>
+                        <td>${p.name} <span style="font-size:0.8em; color:var(--secondary-text);">(${p.category})</span></td>
                         <td>
                             <button onclick="editPart(${p.id})" style="background:#4facfe; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-weight:bold; margin-right: 5px;">Edit</button>
                             <button onclick="deletePart(${p.id})" style="background:#ff4757; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-weight:bold;">Delete</button>
@@ -546,10 +554,10 @@
                 const list = document.getElementById('users-list');
                 
                 let html = '<table style="width:100%; border-collapse: collapse; text-align: left;">';
-                html += '<tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><th style="padding:10px; color:#888;">ID</th><th style="color:#888;">Username</th><th style="color:#888;">Action</th></tr>';
+                html += '<tr style="border-bottom: 1px solid var(--card-border);"><th style="padding:10px; color:var(--secondary-text);">ID</th><th style="color:var(--secondary-text);">Username</th><th style="color:var(--secondary-text);">Action</th></tr>';
                 users.forEach(u => {
                     html += `
-                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <tr style="border-bottom: 1px solid var(--card-border);">
                         <td style="padding:10px;">${u.id}</td>
                         <td>${u.username}</td>
                         <td>
@@ -614,6 +622,30 @@
             originalSwitchSection(section);
             if (section === 'users') loadUsers();
         };
+
+        // Theme Toggle Logic
+        const themeToggle = document.getElementById('theme-toggle');
+        const themeIcon = themeToggle.querySelector('i');
+        
+        if (document.documentElement.getAttribute('data-theme') === 'light') {
+            themeIcon.classList.remove('fa-moon');
+            themeIcon.classList.add('fa-sun');
+        }
+
+        themeToggle.addEventListener('click', () => {
+            let theme = document.documentElement.getAttribute('data-theme');
+            theme = theme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', theme);
+            localStorage.setItem('theme', theme);
+            
+            if (theme === 'light') {
+                themeIcon.classList.remove('fa-moon');
+                themeIcon.classList.add('fa-sun');
+            } else {
+                themeIcon.classList.remove('fa-sun');
+                themeIcon.classList.add('fa-moon');
+            }
+        });
     </script>
 </body>
 

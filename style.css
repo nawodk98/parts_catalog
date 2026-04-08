@@ -24,6 +24,33 @@
     --border-radius-sm: 8px;
 
     --font-main: 'Outfit', sans-serif;
+    
+    --glass-bg: rgba(255, 255, 255, 0.03);
+    --glass-bg-hover: rgba(255, 255, 255, 0.05);
+    --btn-faint-bg: rgba(255, 255, 255, 0.1);
+    --btn-faint-text: #ffffff;
+}
+
+[data-theme="light"] {
+    --bg-color: #f0f4f8;
+    --card-bg: rgba(255, 255, 255, 0.85);
+    --card-border: rgba(0, 0, 0, 0.1);
+
+    --primary-text: #1e293b;
+    --secondary-text: #475569;
+
+    --accent-glow: #0096ff;
+    --accent-glow-secondary: #0052cc;
+    --accent-primary: #0066ff;
+
+    --input-bg: rgba(255, 255, 255, 0.9);
+    --input-focus: rgba(0, 102, 255, 0.2);
+    --input-border: rgba(0, 0, 0, 0.2);
+
+    --glass-bg: rgba(0, 0, 0, 0.02);
+    --glass-bg-hover: rgba(0, 0, 0, 0.06);
+    --btn-faint-bg: rgba(0, 0, 0, 0.08);
+    --btn-faint-text: #1e293b;
 }
 
 /* Global Reset */
@@ -153,10 +180,34 @@ body {
     border: 1px solid var(--card-border);
     border-radius: var(--border-radius-lg);
     padding: 2.5rem;
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.1);
     display: flex;
     flex-direction: column;
     gap: 2rem;
+}
+
+/* Theme Toggle Button */
+.theme-toggle {
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    color: var(--primary-text);
+    border-radius: 50%;
+    width: 42px;
+    height: 42px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    transition: all var(--transition-speed);
+    font-size: 1.2rem;
+}
+
+.theme-toggle:hover {
+    background: var(--accent-primary);
+    color: white;
+    border-color: var(--accent-primary);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0, 136, 255, 0.3);
 }
 
 /* Custom Navigation Toggles */
@@ -454,7 +505,7 @@ select option {
 
 /* Sample Result Items */
 .result-item {
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--glass-bg);
     border: 1px solid var(--card-border);
     border-radius: var(--border-radius-sm);
     padding: 1.5rem;
@@ -468,7 +519,7 @@ select option {
 
 .result-item:hover {
     transform: translateY(-2px);
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--glass-bg-hover);
     border-color: rgba(0, 210, 255, 0.3);
 }
 
@@ -483,17 +534,18 @@ select option {
 }
 
 .result-action {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--btn-faint-bg);
     border: none;
-    color: white;
+    color: var(--btn-faint-text);
     padding: 8px 16px;
     border-radius: var(--border-radius-sm);
     cursor: pointer;
-    transition: background var(--transition-speed);
+    transition: all var(--transition-speed);
 }
 
 .result-action:hover {
     background: var(--accent-primary);
+    color: white;
 }
 
 /* Mobile Responsiveness */
