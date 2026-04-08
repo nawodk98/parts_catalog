@@ -230,6 +230,23 @@ document.addEventListener('DOMContentLoaded', () => {
                     ? `<span style="background: rgba(255, 165, 2, 0.2); color: #ffa502; padding: 3px 8px; border-radius: 12px; font-size: 0.8rem; margin-right: 10px;">OEM - ${item.brand}</span>`
                     : `<span style="background: rgba(46, 213, 115, 0.2); color: #2ed573; padding: 3px 8px; border-radius: 12px; font-size: 0.8rem; margin-right: 10px;">Genuine</span>`;
 
+                let specsHtml = '';
+                let alertSpecs = '';
+                if (item.specifications) {
+                    try {
+                        const specs = JSON.parse(item.specifications);
+                        if (Object.keys(specs).length > 0) {
+                            specsHtml = '<div style="margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px;">';
+                            alertSpecs = '\\n\\nSpecifications:\\n';
+                            for (const [key, val] of Object.entries(specs)) {
+                                specsHtml += `<span style="background: var(--glass-bg); border: 1px solid var(--card-border); padding: 4px 10px; border-radius: 20px; font-size: 0.85rem; color: var(--secondary-text);"><strong style="color: var(--accent-glow); margin-right: 4px;">${key}:</strong> ${val}</span>`;
+                                alertSpecs += `${key.replace(/'/g, "\\'")}: ${val.replace(/'/g, "\\'")}\\n`;
+                            }
+                            specsHtml += '</div>';
+                        }
+                    } catch (e) {}
+                }
+
                 html += `
                     <div class="result-item" style="animation-delay: ${index * 0.1}s">
                         <div class="result-info">
@@ -240,10 +257,11 @@ document.addEventListener('DOMContentLoaded', () => {
                                 ${badge} <span style="color: var(--secondary-text); font-size: 0.9rem;">Category: ${item.category}</span>
                             </div>
                             ${item.description ? `<p style="color: var(--secondary-text); font-size: 0.9em; margin-top: 8px; line-height: 1.4;">${item.description}</p>` : ''}
+                            ${specsHtml}
                             ${item.vehicle_fits ? `<p style="color: #4facfe; font-size: 0.85em; margin-top: 8px; font-weight: 500;">✓ Fits: ${item.vehicle_fits}</p>` : ''}
                             ${item.engine_fitment ? `<p style="color: #ff9ff3; font-size: 0.85em; margin-top: 4px; font-weight: 500;">⚙️ ${item.engine_fitment}</p>` : ''}
                         </div>
-                        <button class="result-action" onclick="alert('Part Name: ${item.name.replace(/'/g, "\\'")}\\nPart Number: ${item.part_number}\\nType: ${item.part_type}\\nCategory: ${item.category}\\n\\nCompatible Vehicles:\\n${item.vehicle_fits ? item.vehicle_fits.replace(/'/g, "\\'") : 'Universal / Unknown'}\\n\\nFits Engine:\\n${item.engine_fitment ? item.engine_fitment.replace('Engine: ', '') : 'Universal'}')">
+                        <button class="result-action" onclick="alert('Part Name: ${item.name.replace(/'/g, "\\'")}\\nPart Number: ${item.part_number}\\nType: ${item.part_type}\\nCategory: ${item.category}${alertSpecs}\\n\\nCompatible Vehicles:\\n${item.vehicle_fits ? item.vehicle_fits.replace(/'/g, "\\'") : 'Universal / Unknown'}\\n\\nFits Engine:\\n${item.engine_fitment ? item.engine_fitment.replace('Engine: ', '') : 'Universal'}')">
                             View Details
                         </button>
                     </div>

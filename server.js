@@ -40,6 +40,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
              category TEXT,
              part_type TEXT DEFAULT 'Genuine',
              brand TEXT,
+             specifications TEXT,
              FOREIGN KEY (vehicle_id) REFERENCES vehicles (id)
          )`, () => {
              // Silently upgrade existing DB schema
@@ -47,6 +48,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
              db.run("ALTER TABLE parts ADD COLUMN brand TEXT", () => {});
              db.run("ALTER TABLE parts ADD COLUMN description TEXT", () => {});
              db.run("ALTER TABLE parts ADD COLUMN engine_type TEXT", () => {});
+             db.run("ALTER TABLE parts ADD COLUMN specifications TEXT", () => {});
          });
 
         db.run(`CREATE TABLE IF NOT EXISTS part_compatibility (
@@ -153,14 +155,14 @@ app.post('/api/vehicles', authenticate, (req, res) => {
 
 // Add a new part
 app.post('/api/parts', authenticate, (req, res) => {
-    const { part_type, brand, part_number, name, description, category, vehicle_id, engine_type, compatible_genuine_numbers } = req.body;
+    const { part_type, brand, part_number, name, description, category, vehicle_id, engine_type, compatible_genuine_numbers, specifications } = req.body;
     
     // Allow saving part even if vehicle_id is missing, as long as it has an engine_type
     const vId = part_type === 'OEM' ? null : (vehicle_id ? vehicle_id : null);
 
-    db.run(`INSERT INTO parts (part_type, brand, part_number, name, description, category, vehicle_id, engine_type) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [part_type || 'Genuine', brand || null, part_number, name, description, category, vId, engine_type || null],
+    db.run(`INSERT INTO parts (part_type, brand, part_number, name, description, category, vehicle_id, engine_type, specifications) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [part_type || 'Genuine', brand || null, part_number, name, description, category, vId, engine_type || null, specifications ? JSON.stringify(specifications) : null],
         function (err) {
             if (err) return res.status(400).json({ error: err.message });
             const pId = this.lastID;
@@ -352,12 +354,12 @@ app.get('/api/parts/:id', (req, res) => {
 // Update a part
 app.put('/api/parts/:id', authenticate, (req, res) => {
     const pId = req.params.id;
-    const { part_type, brand, part_number, name, description, category, vehicle_id, engine_type, compatible_genuine_numbers } = req.body;
+    const { part_type, brand, part_number, name, description, category, vehicle_id, engine_type, compatible_genuine_numbers, specifications } = req.body;
     
     const vId = part_type === 'OEM' ? null : (vehicle_id ? vehicle_id : null);
 
-    db.run(`UPDATE parts SET part_type=?, brand=?, part_number=?, name=?, description=?, category=?, vehicle_id=?, engine_type=? WHERE id=?`,
-        [part_type || 'Genuine', brand || null, part_number, name, description, category, vId, engine_type || null, pId],
+    db.run(`UPDATE parts SET part_type=?, brand=?, part_number=?, name=?, description=?, category=?, vehicle_id=?, engine_type=?, specifications=? WHERE id=?`,
+        [part_type || 'Genuine', brand || null, part_number, name, description, category, vId, engine_type || null, specifications ? JSON.stringify(specifications) : null, pId],
         function (err) {
             if (err) return res.status(400).json({ error: err.message });
             
