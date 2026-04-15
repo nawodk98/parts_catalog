@@ -328,7 +328,7 @@ app.get('/api/parts/vehicle', (req, res) => {
         });
 });
 // Download Database Endpoint for Offline Mobile Sync
-app.get('/api/database/download', authenticate, (req, res) => {
+app.get('/api/database/download', (req, res) => {
     res.download(dbPath, 'parts.sqlite', (err) => {
         if (err) console.error("Error downloading database:", err);
     });
