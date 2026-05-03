@@ -52,6 +52,8 @@ function initDB() {
              db.run("ALTER TABLE parts ADD COLUMN description TEXT", () => {});
              db.run("ALTER TABLE parts ADD COLUMN engine_type TEXT", () => {});
              db.run("ALTER TABLE parts ADD COLUMN specifications TEXT", () => {});
+             db.run("ALTER TABLE parts ADD COLUMN vehicle_brand TEXT", () => {});
+             db.run("ALTER TABLE parts ADD COLUMN vehicle_model TEXT", () => {});
          });
 
         db.run(`CREATE TABLE IF NOT EXISTS part_compatibility (
@@ -161,16 +163,15 @@ app.post('/api/vehicles', authenticate, (req, res) => {
     );
 });
 
-// Add a new part
 app.post('/api/parts', authenticate, (req, res) => {
-    const { part_type, brand, part_number, name, description, category, vehicle_id, engine_type, compatible_genuine_numbers, specifications } = req.body;
+    const { part_type, brand, part_number, name, description, category, vehicle_id, engine_type, compatible_genuine_numbers, specifications, vehicle_brand, vehicle_model } = req.body;
     
     // Allow saving part even if vehicle_id is missing, as long as it has an engine_type
     const vId = part_type === 'OEM' ? null : (vehicle_id ? vehicle_id : null);
 
-    db.run(`INSERT INTO parts (part_type, brand, part_number, name, description, category, vehicle_id, engine_type, specifications) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [part_type || 'Genuine', brand || null, part_number, name, description, category, vId, engine_type || null, specifications ? JSON.stringify(specifications) : null],
+    db.run(`INSERT INTO parts (part_type, brand, part_number, name, description, category, vehicle_id, engine_type, specifications, vehicle_brand, vehicle_model) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [part_type || 'Genuine', brand || null, part_number, name, description, category, vId, engine_type || null, specifications ? JSON.stringify(specifications) : null, vehicle_brand || null, vehicle_model || null],
         function (err) {
             if (err) return res.status(400).json({ error: err.message });
             const pId = this.lastID;
@@ -229,7 +230,7 @@ app.get('/api/parts/search', (req, res) => {
     const query = `
         SELECT p.*,
                (CASE WHEN p.engine_type IS NOT NULL AND p.engine_type != '' THEN 'Engine: ' || p.engine_type ELSE '' END) as engine_fitment,
-               GROUP_CONCAT(DISTINCT UPPER(v.brand) || ' ' || v.model || ' ' || v.submodel || COALESCE(' ' || NULLIF(v.engine_type, ''), '')) as vehicle_fits
+               GROUP_CONCAT(DISTINCT COALESCE(UPPER(v.brand) || ' ' || v.model || ' ' || COALESCE(v.submodel, '') || COALESCE(' ' || NULLIF(v.engine_type, ''), ''), NULLIF(TRIM(COALESCE(UPPER(p.vehicle_brand), '') || ' ' || COALESCE(p.vehicle_model, '')), ''))) as vehicle_fits
         FROM parts p
         LEFT JOIN part_compatibility pc ON p.id = pc.oem_part_id
         LEFT JOIN parts gp ON pc.genuine_part_number = gp.part_number
@@ -239,6 +240,8 @@ app.get('/api/parts/search', (req, res) => {
            OR UPPER(p.description) LIKE ?
            OR UPPER(p.brand) LIKE ?
            OR UPPER(p.engine_type) LIKE ?
+           OR UPPER(p.vehicle_brand) LIKE ?
+           OR UPPER(p.vehicle_model) LIKE ?
            OR UPPER(p.specifications) LIKE ?
            OR UPPER(v.brand) LIKE ?
            OR UPPER(v.model) LIKE ?
@@ -257,7 +260,7 @@ app.get('/api/parts/search', (req, res) => {
         GROUP BY p.id
     `;
     const s = `%${q.toUpperCase()}%`;
-    db.all(query, [s, s, s, s, s, s, s, s, s, s, s, s, s, s, s], (err, rows) => {
+    db.all(query, [s, s, s, s, s, s, s, s, s, s, s, s, s, s, s, s, s], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(rows);
     });
@@ -285,7 +288,7 @@ app.get('/api/parts/vehicle', (req, res) => {
             let query = `
                 SELECT p.*,
                        (CASE WHEN p.engine_type IS NOT NULL AND p.engine_type != '' THEN 'Engine: ' || p.engine_type ELSE '' END) as engine_fitment,
-                       GROUP_CONCAT(DISTINCT UPPER(v.brand) || ' ' || v.model || ' ' || v.submodel || COALESCE(' ' || NULLIF(v.engine_type, ''), '')) as vehicle_fits
+                       GROUP_CONCAT(DISTINCT COALESCE(UPPER(v.brand) || ' ' || v.model || ' ' || COALESCE(v.submodel, '') || COALESCE(' ' || NULLIF(v.engine_type, ''), ''), NULLIF(TRIM(COALESCE(UPPER(p.vehicle_brand), '') || ' ' || COALESCE(p.vehicle_model, '')), ''))) as vehicle_fits
                 FROM parts p
                 LEFT JOIN part_compatibility pc ON p.id = pc.oem_part_id
                 LEFT JOIN parts gp ON pc.genuine_part_number = gp.part_number
@@ -387,12 +390,12 @@ app.get('/api/parts/:id', (req, res) => {
 // Update a part
 app.put('/api/parts/:id', authenticate, (req, res) => {
     const pId = req.params.id;
-    const { part_type, brand, part_number, name, description, category, vehicle_id, engine_type, compatible_genuine_numbers, specifications } = req.body;
+    const { part_type, brand, part_number, name, description, category, vehicle_id, engine_type, compatible_genuine_numbers, specifications, vehicle_brand, vehicle_model } = req.body;
     
     const vId = part_type === 'OEM' ? null : (vehicle_id ? vehicle_id : null);
 
-    db.run(`UPDATE parts SET part_type=?, brand=?, part_number=?, name=?, description=?, category=?, vehicle_id=?, engine_type=?, specifications=? WHERE id=?`,
-        [part_type || 'Genuine', brand || null, part_number, name, description, category, vId, engine_type || null, specifications ? JSON.stringify(specifications) : null, pId],
+    db.run(`UPDATE parts SET part_type=?, brand=?, part_number=?, name=?, description=?, category=?, vehicle_id=?, engine_type=?, specifications=?, vehicle_brand=?, vehicle_model=? WHERE id=?`,
+        [part_type || 'Genuine', brand || null, part_number, name, description, category, vId, engine_type || null, specifications ? JSON.stringify(specifications) : null, vehicle_brand || null, vehicle_model || null, pId],
         function (err) {
             if (err) return res.status(400).json({ error: err.message });
             

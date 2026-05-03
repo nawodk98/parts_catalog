@@ -15,52 +15,176 @@
     <style>
         .admin-nav {
             display: flex;
-            gap: 15px;
-            margin-bottom: 2rem;
+            gap: 10px;
+            margin-bottom: 2.5rem;
+            flex-wrap: wrap;
+            background: var(--glass-bg);
+            padding: 12px;
+            border-radius: 16px;
+            border: 1px solid var(--card-border);
+            align-items: center;
+            box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+
+        [data-theme="light"] .admin-nav {
+            background: var(--glass-bg);
+            border: 1px solid var(--card-border);
+            box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.02);
         }
 
         .admin-btn {
-            background: var(--input-bg);
-            border: 1px solid var(--input-border);
+            background: transparent;
+            border: 1px solid transparent;
             color: var(--primary-text);
-            padding: 10px 20px;
-            border-radius: var(--border-radius-sm);
+            opacity: 0.8;
+            padding: 10px 18px;
+            border-radius: 10px;
             cursor: pointer;
-            transition: all var(--transition-speed);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-weight: 500;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .admin-btn i {
+            font-size: 1.1rem;
+        }
+
+        .admin-btn:hover {
+            opacity: 1;
+            background: var(--glass-bg-hover);
+        }
+
+        [data-theme="light"] .admin-btn:hover {
+            background: var(--glass-bg-hover);
         }
 
         .admin-btn.active {
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-glow-secondary));
+            border-color: transparent;
+            color: #ffffff !important;
+            box-shadow: 0 4px 15px var(--shadow-glow-strong);
+            font-weight: 600;
+            opacity: 1;
+        }
+
+        [data-theme="light"] .admin-btn.active {
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-glow-secondary));
+            border-color: transparent;
+            color: #ffffff !important;
+            box-shadow: 0 4px 15px var(--shadow-glow-strong);
+        }
+
+        .action-edit {
+            background: var(--input-focus);
+            color: var(--accent-glow);
+            border: 1px solid var(--accent-primary);
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            margin-right: 8px;
+            transition: all 0.2s;
+        }
+        [data-theme="light"] .action-edit {
+            color: var(--accent-primary);
+        }
+        .action-edit:hover {
             background: var(--accent-primary);
-            border-color: var(--accent-glow);
+            color: #fff;
+        }
+
+        .action-delete {
+            background: rgba(255, 71, 87, 0.1);
+            color: #ff4757;
+            border: 1px solid rgba(255, 71, 87, 0.3);
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .action-delete:hover {
+            background: #ff4757;
+            color: #fff;
+            border-color: #ff4757;
         }
 
         .form-group {
-            margin-bottom: 20px;
+            margin-bottom: 24px;
         }
 
         .form-group label {
             display: block;
             margin-bottom: 8px;
             color: var(--secondary-text);
+            font-weight: 500;
+            font-size: 0.95rem;
         }
 
         .form-wrapper {
-            background: var(--glass-bg);
-            padding: 20px;
-            border-radius: var(--border-radius-md);
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            padding: 35px;
+            border-radius: 20px;
             border: 1px solid var(--card-border);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .form-wrapper::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, var(--accent-primary), var(--accent-glow-secondary));
+            opacity: 0.8;
+        }
+
+        .form-wrapper h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 25px;
+            color: var(--primary-text);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        [data-theme="light"] .form-wrapper h2 {
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
         }
 
         .success-msg {
             color: #2ed573;
             display: none;
             margin-top: 15px;
+            padding: 12px 16px;
+            background: rgba(46, 213, 115, 0.1);
+            border-radius: 8px;
+            border: 1px solid rgba(46, 213, 115, 0.2);
+            font-weight: 500;
         }
 
         .error-msg {
             color: #ff4757;
             display: none;
             margin-top: 15px;
+            padding: 12px 16px;
+            background: rgba(255, 71, 87, 0.1);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 71, 87, 0.2);
+            font-weight: 500;
         }
 
         .form-section {
@@ -69,49 +193,114 @@
 
         .form-section.active {
             display: block;
+            animation: formFadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes formFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(15px) scale(0.98);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .form-wrapper::-webkit-scrollbar {
+            width: 8px;
+        }
+        .form-wrapper::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.1);
+            border-radius: 4px;
+        }
+        .form-wrapper::-webkit-scrollbar-thumb {
+            background: var(--accent-primary);
+            border-radius: 4px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin-top: 10px;
+        }
+        th {
+            padding: 15px 12px;
+            color: var(--secondary-text);
+            font-weight: 500;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid var(--card-border);
+            text-align: left;
+        }
+        td {
+            padding: 15px 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            color: var(--primary-text);
+        }
+        [data-theme="light"] td {
+            border-bottom: 1px solid rgba(0, 0, 0, 0.03);
+        }
+        tr:last-child td {
+            border-bottom: none;
+        }
+        tr {
+            transition: background 0.2s;
+        }
+        tr:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+        [data-theme="light"] tr:hover {
+            background: rgba(0, 0, 0, 0.02);
         }
     </style>
 </head>
 
 <body>
-    <div class="app-container" style="max-width: 800px;">
+    <div class="app-container" style="max-width: 1000px;">
         <div class="background-effects">
             <div class="blur-blob blob-1"></div>
+            <div class="blur-blob blob-2" style="background: linear-gradient(135deg, var(--accent-primary), var(--accent-glow-secondary)); right: auto; left: -100px; bottom: -100px; top: auto; animation-delay: -5s;"></div>
         </div>
 
-        <header class="main-header" style="margin-bottom: 1.5rem; position: relative;">
-            <h1>Admin <span>Panel</span></h1>
-            <p style="color: var(--secondary-text)">Add vehicles and parts to your database</p>
-            <button class="theme-toggle" id="theme-toggle" title="Toggle Light/Dark Mode" style="position: absolute; right: 0; top: 0;">
+        <header class="main-header" style="margin-bottom: 2rem; position: relative; text-align: left; display: flex; justify-content: space-between; align-items: center; background: var(--card-bg); padding: 25px 35px; border-radius: 20px; border: 1px solid var(--card-border); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
+            <div>
+                <h1 style="font-size: 2.2rem; display: flex; align-items: center; gap: 15px; margin: 0;"><i class="fa-solid fa-shield-halved logo-icon" style="font-size: 2rem;"></i> System <span>Admin</span></h1>
+                <p style="color: var(--secondary-text); margin-top: 5px; font-size: 1.05rem;">Manage your catalog database securely</p>
+            </div>
+            <button class="theme-toggle" id="theme-toggle" title="Toggle Light/Dark Mode" style="position: static;">
                 <i class="fa-solid fa-moon"></i>
             </button>
         </header>
 
-        <main class="main-content">
+        <main class="main-content" style="padding: 0; background: transparent; border: none; box-shadow: none; backdrop-filter: none;">
             <div class="admin-nav" id="admin-nav" style="display: none;">
-                <button class="admin-btn active" id="nav-vehicle" onclick="switchSection('vehicle')">Add Vehicle</button>
-                <button class="admin-btn" id="nav-part" onclick="switchSection('part')">Add Part</button>
-                <button class="admin-btn" id="nav-manage" onclick="switchSection('manage')">Manage Parts</button>
-                <button class="admin-btn" id="nav-users" onclick="switchSection('users')">Manage Users</button>
-                <button class="admin-btn" id="nav-backup" onclick="switchSection('backup')" style="background: rgba(46, 213, 115, 0.1); border-color: #2ed573; color: #2ed573;">Backup</button>
-                <a href="/" style="margin-left:auto; margin-right:15px; color: var(--accent-glow); text-decoration: none;">&larr; Back to App</a>
-                <button class="admin-btn" onclick="logout()" style="padding: 5px 10px;">Logout</button>
+                <button class="admin-btn active" id="nav-vehicle" onclick="switchSection('vehicle')"><i class="fa-solid fa-car"></i> Add Vehicle</button>
+                <button class="admin-btn" id="nav-part" onclick="switchSection('part')"><i class="fa-solid fa-cogs"></i> Add Part</button>
+                <button class="admin-btn" id="nav-manage" onclick="switchSection('manage')"><i class="fa-solid fa-list-check"></i> Manage Parts</button>
+                <button class="admin-btn" id="nav-users" onclick="switchSection('users')"><i class="fa-solid fa-users"></i> Manage Users</button>
+                <button class="admin-btn" id="nav-backup" onclick="switchSection('backup')" style="background: var(--input-focus); border-color: var(--accent-glow); color: var(--accent-glow);"><i class="fa-solid fa-database"></i> Backup / Restore</button>
+                <div style="flex-grow: 1;"></div>
+                <a href="/" style="color: var(--secondary-text); text-decoration: none; font-size: 0.95rem; font-weight: 500; display:flex; align-items:center; gap:5px; transition: color 0.3s; margin-right: 15px;"><i class="fa-solid fa-arrow-left"></i> App</a>
+                <button class="admin-btn" onclick="logout()" style="color: #ff4757; background: rgba(255, 71, 87, 0.05); border-color: transparent;"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
             </div>
 
             <!-- Login Form -->
-            <div id="section-login" class="form-section active form-wrapper">
-                <h2 style="margin-bottom: 20px; font-weight: 500;">Admin Login</h2>
+            <div id="section-login" class="form-section active form-wrapper" style="max-width: 500px; margin: 0 auto;">
+                <h2><i class="fa-solid fa-lock" style="color: var(--accent-primary);"></i> Admin Authentication</h2>
                 <form id="loginForm">
                     <div class="form-group">
                         <label>Username</label>
-                        <input type="text" id="login-username" class="premium-input" required autofocus>
+                        <input type="text" id="login-username" class="premium-input" required autofocus placeholder="Enter admin username">
                     </div>
                     <div class="form-group">
                         <label>Password</label>
-                        <input type="password" id="login-password" class="premium-input" required>
+                        <input type="password" id="login-password" class="premium-input" required placeholder="Enter password">
                     </div>
-                    <button type="submit" class="btn-primary" style="width: 100%; justify-content: center;">Login</button>
-                    <p id="login-error" class="error-msg">Invalid credentials.</p>
+                    <button type="submit" class="btn-primary" style="width: 100%; justify-content: center; margin-top: 10px;">Secure Login <i class="fa-solid fa-arrow-right-to-bracket"></i></button>
+                    <p id="login-error" class="error-msg"><i class="fa-solid fa-circle-exclamation"></i> Invalid credentials.</p>
                 </form>
             </div>
 
@@ -127,141 +316,161 @@
 
             <!-- Vehicle Form -->
             <div id="section-vehicle" class="form-section form-wrapper">
-                <h2 style="margin-bottom: 20px; font-weight: 500;">Create Vehicle Configuration</h2>
+                <h2><i class="fa-solid fa-car-side" style="color: var(--accent-primary);"></i> Create Vehicle Configuration</h2>
                 <form id="vehicleForm">
-                    <div class="form-group">
-                        <label>Brand (e.g., Toyota)</label>
-                        <input type="text" id="v-brand" list="dl-v-brand" class="premium-input" required>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div class="form-group">
+                            <label>Brand (e.g., Toyota)</label>
+                            <input type="text" id="v-brand" list="dl-v-brand" class="premium-input" required placeholder="Enter vehicle brand">
+                        </div>
+                        <div class="form-group">
+                            <label>Model (e.g., Camry)</label>
+                            <input type="text" id="v-model" list="dl-v-model" class="premium-input" required placeholder="Enter vehicle model">
+                        </div>
+                        <div class="form-group">
+                            <label>Sub Model (e.g., LE, XSE)</label>
+                            <input type="text" id="v-submodel" list="dl-v-submodel" class="premium-input" required placeholder="Enter sub model">
+                        </div>
+                        <div class="form-group">
+                            <label>Engine Type (e.g., 2KD)</label>
+                            <input type="text" id="v-engine" list="dl-engine" class="premium-input" placeholder="Enter engine type">
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label>Model (e.g., Camry)</label>
-                        <input type="text" id="v-model" list="dl-v-model" class="premium-input" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Sub Model (e.g., LE, XSE)</label>
-                        <input type="text" id="v-submodel" list="dl-v-submodel" class="premium-input" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Engine Type (e.g., 2KD)</label>
-                        <input type="text" id="v-engine" list="dl-engine" class="premium-input">
-                    </div>
-                    <button type="submit" class="btn-primary" style="width: 100%; justify-content: center;">Save
-                        Vehicle</button>
-                    <p id="v-success" class="success-msg">Vehicle added successfully!</p>
-                    <p id="v-error" class="error-msg">Error adding vehicle.</p>
+                    <button type="submit" class="btn-primary" style="margin-top: 10px;"><i class="fa-solid fa-floppy-disk"></i> Save Vehicle</button>
+                    <p id="v-success" class="success-msg"><i class="fa-solid fa-circle-check"></i> Vehicle added successfully!</p>
+                    <p id="v-error" class="error-msg"><i class="fa-solid fa-circle-exclamation"></i> Error adding vehicle.</p>
                 </form>
             </div>
 
             <!-- Part Form -->
             <div id="section-part" class="form-section form-wrapper">
-                <h2 id="part-form-title" style="margin-bottom: 20px; font-weight: 500;">Add New Part</h2>
+                <h2 id="part-form-title"><i class="fa-solid fa-puzzle-piece" style="color: var(--accent-primary);"></i> Add New Part</h2>
                 <form id="partForm">
-                    <div class="form-group">
-                        <label>Part Type</label>
-                        <select id="p-type" onchange="togglePartType()" style="width:100%" class="premium-input">
-                            <option value="Genuine">Genuine Part (Matches specific vehicle)</option>
-                            <option value="OEM">OEM / Alternative (Matches genuine parts)</option>
-                        </select>
-                    </div>
-                    <div class="form-group" id="p-vehicle-div">
-                        <label>Assign to Vehicle</label>
-                        <select id="p-vehicle-id" style="width:100%">
-                            <option value="">-- None / Engine Only --</option>
-                        </select>
-                    </div>
-                    <div class="form-group" id="p-engine-div">
-                        <label>Assign to Engine (Optional, fits ALL with this engine)</label>
-                        <input type="text" id="p-engine" list="dl-engine" class="premium-input" placeholder="e.g. 2KD">
-                    </div>
-                    <div class="form-group" id="p-oem-brand-div" style="display: none;">
-                        <label>OEM Brand Name (e.g., Bosch)</label>
-                        <input type="text" id="p-brand" list="dl-p-brand" class="premium-input">
-                    </div>
-                    <div class="form-group">
-                        <label>Part Number</label>
-                        <input type="text" id="p-number" class="premium-input" required autofocus>
-                    </div>
-                    <div class="form-group">
-                        <label>Part Name</label>
-                        <input type="text" id="p-name" list="dl-p-name" class="premium-input" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Detailed Description</label>
-                        <input type="text" id="p-description" list="dl-p-desc" class="premium-input" placeholder="Additional details, features, specs...">
-                    </div>
-                    <div class="form-group">
-                        <label>Category / Type (e.g., Brake Pads)</label>
-                        <input type="text" id="p-category" list="dl-p-category" class="premium-input" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Specifications (Optional: e.g. Dimensions, Length, Temperature)</label>
-                        <div id="specifications-list" style="margin-bottom: 10px;"></div>
-                        <div style="display: flex; gap: 10px;">
-                            <input type="text" id="spec-key" class="premium-input" placeholder="e.g. Outer Diameter" style="flex: 1;">
-                            <input type="text" id="spec-value" class="premium-input" placeholder="e.g. 45mm" style="flex: 1;">
-                            <button type="button" class="btn-primary" onclick="addSpecification()" style="padding: 10px 20px;">Add</button>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div class="form-group">
+                            <label>Part Type</label>
+                            <select id="p-type" onchange="togglePartType()" style="width:100%" class="premium-input" style="padding: 15px;">
+                                <option value="Genuine">Genuine Part (Matches specific vehicle)</option>
+                                <option value="OEM">OEM / Alternative (Matches genuine parts)</option>
+                            </select>
+                        </div>
+                        <div class="form-group" id="p-vehicle-div">
+                            <label>Assign to Vehicle</label>
+                            <select id="p-vehicle-id" style="width:100%" class="premium-input" style="padding: 15px;">
+                                <option value="">-- None / Engine Only --</option>
+                            </select>
+                        </div>
+                        <div class="form-group" id="p-engine-div">
+                            <label>Assign to Engine (Optional, fits ALL with this engine)</label>
+                            <input type="text" id="p-engine" list="dl-engine" class="premium-input" placeholder="e.g. 2KD">
+                        </div>
+                        <div class="form-group" id="p-vehicle-brand-div">
+                            <label>Vehicle Brand (Optional text)</label>
+                            <input type="text" id="p-vehicle-brand" list="dl-v-brand" class="premium-input" placeholder="e.g. Toyota">
+                        </div>
+                        <div class="form-group" id="p-vehicle-model-div">
+                            <label>Vehicle Model (Optional text)</label>
+                            <input type="text" id="p-vehicle-model" list="dl-v-model" class="premium-input" placeholder="e.g. Corolla 121">
+                        </div>
+                        <div class="form-group" id="p-oem-brand-div" style="display: none;">
+                            <label>OEM Brand Name (e.g., Bosch)</label>
+                            <input type="text" id="p-brand" list="dl-p-brand" class="premium-input" placeholder="Enter brand">
+                        </div>
+                        <div class="form-group">
+                            <label>Part Number</label>
+                            <input type="text" id="p-number" class="premium-input" required autofocus placeholder="Enter part number">
+                        </div>
+                        <div class="form-group">
+                            <label>Part Name</label>
+                            <input type="text" id="p-name" list="dl-p-name" class="premium-input" required placeholder="Enter part name">
+                        </div>
+                        <div class="form-group" style="grid-column: 1 / -1;">
+                            <label>Detailed Description</label>
+                            <input type="text" id="p-description" list="dl-p-desc" class="premium-input" placeholder="Additional details, features, specs...">
+                        </div>
+                        <div class="form-group">
+                            <label>Category / Type (e.g., Brake Pads)</label>
+                            <input type="text" id="p-category" list="dl-p-category" class="premium-input" required placeholder="Enter category">
+                        </div>
+                        <div class="form-group" id="p-compatible-div" style="display: none;">
+                            <label>Compatible Genuine Part Numbers (comma-separated)</label>
+                            <input type="text" id="p-compatible" class="premium-input" placeholder="e.g., TOY-1234, HON-555">
                         </div>
                     </div>
-                    <div class="form-group" id="p-compatible-div" style="display: none;">
-                        <label>Compatible Genuine Part Numbers (comma-separated)</label>
-                        <input type="text" id="p-compatible" class="premium-input" placeholder="e.g., TOY-1234, HON-555">
+
+                    <div class="form-group" style="background: rgba(0,0,0,0.1); padding: 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); margin-top: 10px;">
+                        <label><i class="fa-solid fa-list-ul"></i> Specifications (Optional)</label>
+                        <div id="specifications-list" style="margin-bottom: 15px;"></div>
+                        <div style="display: flex; gap: 15px;">
+                            <input type="text" id="spec-key" class="premium-input" placeholder="e.g. Outer Diameter" style="flex: 1;">
+                            <input type="text" id="spec-value" class="premium-input" placeholder="e.g. 45mm" style="flex: 1;">
+                            <button type="button" class="btn-primary" onclick="addSpecification()" style="padding: 10px 25px;"><i class="fa-solid fa-plus"></i> Add</button>
+                        </div>
                     </div>
-                    <div style="display: flex; gap: 10px;">
-                        <button id="part-submit-btn" type="submit" class="btn-primary" style="flex: 1; justify-content: center;">Save Part</button>
-                        <button id="part-cancel-btn" type="button" class="btn-primary" style="flex: 1; justify-content: center; background: #666; display: none;" onclick="cancelEditPart()">Cancel Edit</button>
+                    
+                    <div style="display: flex; gap: 15px; margin-top: 20px;">
+                        <button id="part-submit-btn" type="submit" class="btn-primary" style="flex: 1; justify-content: center;"><i class="fa-solid fa-floppy-disk"></i> Save Part</button>
+                        <button id="part-cancel-btn" type="button" class="btn-primary" style="flex: 1; justify-content: center; background: linear-gradient(135deg, #666, #444); display: none;" onclick="cancelEditPart()"><i class="fa-solid fa-xmark"></i> Cancel Edit</button>
                     </div>
-                    <p id="p-success" class="success-msg">Part added successfully!</p>
-                    <p id="p-error" class="error-msg">Error saving part.</p>
+                    <p id="p-success" class="success-msg"><i class="fa-solid fa-circle-check"></i> Part added successfully!</p>
+                    <p id="p-error" class="error-msg"><i class="fa-solid fa-circle-exclamation"></i> Error saving part.</p>
                 </form>
             </div>
 
             <!-- Manage Parts -->
-            <div id="section-manage" class="form-section form-wrapper" style="max-height: 500px; overflow-y: auto;">
-                <h2 style="margin-bottom: 20px; font-weight: 500;">Manage Parts</h2>
-                <p style="color: var(--secondary-text); margin-bottom: 15px;">If you made a mistake entering a part, you can delete it below and re-add it with the correct info.</p>
+            <div id="section-manage" class="form-section form-wrapper" style="max-height: 600px; overflow-y: auto;">
+                <h2><i class="fa-solid fa-list-check" style="color: var(--accent-primary);"></i> Manage Parts</h2>
+                <p style="color: var(--secondary-text); margin-bottom: 20px; font-size: 0.95rem;">If you made a mistake entering a part, you can edit or delete it below.</p>
                 <div id="manage-list">Loading parts...</div>
             </div>
 
             <!-- Manage Users Form -->
-            <div id="section-users" class="form-section form-wrapper" style="max-height: 500px; overflow-y: auto;">
-                <h2 style="margin-bottom: 20px; font-weight: 500;">Manage Users</h2>
-                <div id="users-list" style="margin-bottom: 20px;">Loading users...</div>
-                <h3 style="margin-bottom: 15px; font-weight: 500; border-top: 1px solid var(--card-border); padding-top: 15px;">Add New User</h3>
+            <div id="section-users" class="form-section form-wrapper" style="max-height: 600px; overflow-y: auto;">
+                <h2><i class="fa-solid fa-users-gear" style="color: var(--accent-primary);"></i> Manage Users</h2>
+                <div id="users-list" style="margin-bottom: 30px;">Loading users...</div>
+                
+                <h3 style="margin-bottom: 20px; font-weight: 600; font-size: 1.2rem; color: var(--primary-text); border-top: 1px solid rgba(255,255,255,0.05); padding-top: 25px;"><i class="fa-solid fa-user-plus" style="color: var(--accent-glow);"></i> Add New User</h3>
                 <form id="userForm">
-                    <div class="form-group">
-                        <label>Username</label>
-                        <input type="text" id="u-username" class="premium-input" required>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div class="form-group">
+                            <label>Username</label>
+                            <input type="text" id="u-username" class="premium-input" required placeholder="New username">
+                        </div>
+                        <div class="form-group">
+                            <label>Password</label>
+                            <input type="password" id="u-password" class="premium-input" required placeholder="New password">
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label>Password</label>
-                        <input type="password" id="u-password" class="premium-input" required>
-                    </div>
-                    <button type="submit" class="btn-primary" style="width: 100%; justify-content: center;">Save User</button>
-                    <p id="u-success" class="success-msg">User added successfully!</p>
-                    <p id="u-error" class="error-msg">Error saving user.</p>
+                    <button type="submit" class="btn-primary" style="margin-top: 10px;"><i class="fa-solid fa-user-check"></i> Save User</button>
+                    <p id="u-success" class="success-msg"><i class="fa-solid fa-circle-check"></i> User added successfully!</p>
+                    <p id="u-error" class="error-msg"><i class="fa-solid fa-circle-exclamation"></i> Error saving user.</p>
                 </form>
             </div>
 
             <!-- Backup / Restore Form -->
-            <div id="section-backup" class="form-section form-wrapper" style="max-height: 500px; overflow-y: auto;">
-                <h2 style="margin-bottom: 20px; font-weight: 500;">Download / Restore Database</h2>
-                <p style="color: var(--secondary-text); margin-bottom: 25px;">Export your complete database to sync across different computers, or upload a previously exported version to restore the contents and overwrite this PC's state.</p>
+            <div id="section-backup" class="form-section form-wrapper" style="max-height: 600px; overflow-y: auto;">
+                <h2><i class="fa-solid fa-database" style="color: var(--accent-primary);"></i> Download / Restore Database</h2>
+                <p style="color: var(--secondary-text); margin-bottom: 25px; line-height: 1.6;">Export your complete database to sync across different computers, or upload a previously exported version to restore the contents and overwrite this PC's state.</p>
                 
-                <div style="display: flex; gap: 20px; align-items: stretch; flex-wrap: wrap;">
-                    <div style="flex: 1; padding: 20px; border: 1px dashed var(--card-border); border-radius: var(--border-radius-sm); text-align: center; min-width: 250px;">
-                         <i class="fa-solid fa-download" style="font-size: 2rem; color: #4facfe; margin-bottom: 15px;"></i>
-                         <h3 style="margin-bottom: 10px; font-weight: 500;">Backup / Download</h3>
-                         <p style="font-size: 0.9rem; color: var(--secondary-text); margin-bottom: 15px;">Save the latest 'parts.sqlite' to your computer.</p>
-                         <button onclick="downloadDatabase()" class="btn-primary" style="padding: 10px 20px; width: 100%; justify-content: center; background: #4facfe;">Download Database</button>
+                <div style="display: flex; gap: 25px; align-items: stretch; flex-wrap: wrap;">
+                    <div style="flex: 1; padding: 30px; background: rgba(0,0,0,0.2); border: 1px solid var(--input-border); border-radius: 16px; text-align: center; min-width: 280px; transition: transform 0.3s; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
+                         <div style="width: 70px; height: 70px; background: var(--input-focus); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
+                             <i class="fa-solid fa-cloud-arrow-down" style="font-size: 2.2rem; color: var(--accent-glow);"></i>
+                         </div>
+                         <h3 style="margin-bottom: 12px; font-weight: 600; font-size: 1.3rem;">Backup Database</h3>
+                         <p style="font-size: 0.95rem; color: var(--secondary-text); margin-bottom: 25px;">Download a secure copy of your current parts catalog database.</p>
+                         <button onclick="downloadDatabase()" class="btn-primary" style="padding: 15px 25px; width: 100%; justify-content: center;"><i class="fa-solid fa-download"></i> Download Backup</button>
                     </div>
 
-                    <div style="flex: 1; padding: 20px; border: 1px dashed var(--card-border); border-radius: var(--border-radius-sm); text-align: center; min-width: 250px;">
-                         <i class="fa-solid fa-upload" style="font-size: 2rem; color: #2ed573; margin-bottom: 15px;"></i>
-                         <h3 style="margin-bottom: 10px; font-weight: 500;">Restore / Upload</h3>
-                         <p style="font-size: 0.9rem; color: var(--secondary-text); margin-bottom: 15px;">Overwrites your current parts list with an uploaded .sqlite backup.</p>
+                    <div style="flex: 1; padding: 30px; background: rgba(0,0,0,0.2); border: 1px solid rgba(46, 213, 115, 0.3); border-radius: 16px; text-align: center; min-width: 280px; transition: transform 0.3s; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
+                         <div style="width: 70px; height: 70px; background: rgba(46, 213, 115, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
+                             <i class="fa-solid fa-cloud-arrow-up" style="font-size: 2.2rem; color: #2ed573;"></i>
+                         </div>
+                         <h3 style="margin-bottom: 12px; font-weight: 600; font-size: 1.3rem;">Restore Database</h3>
+                         <p style="font-size: 0.95rem; color: var(--secondary-text); margin-bottom: 25px;">Upload a `.sqlite` backup to overwrite your current catalog.</p>
                          <input type="file" id="restore-file-input" style="display: none;" accept=".sqlite,.db">
-                         <button onclick="document.getElementById('restore-file-input').click()" class="btn-primary" style="padding: 10px 20px; width: 100%; justify-content: center; background: #2ed573;">Select File & Restore</button>
-                         <p id="restore-status" style="margin-top: 10px; font-size: 0.9rem; font-weight: bold;"></p>
+                         <button onclick="document.getElementById('restore-file-input').click()" class="btn-primary" style="padding: 15px 25px; width: 100%; justify-content: center; background: linear-gradient(135deg, #2ed573, #218c74);"><i class="fa-solid fa-upload"></i> Upload & Restore</button>
+                         <p id="restore-status" style="margin-top: 15px; font-size: 0.95rem; font-weight: 500;"></p>
                     </div>
                 </div>
             </div>
@@ -304,16 +513,16 @@
                     return;
                 }
                 
-                let html = '<table style="width:100%; border-collapse: collapse; text-align: left;">';
-                html += '<tr style="border-bottom: 1px solid var(--card-border);"><th style="padding:10px; color:var(--secondary-text);">Part #</th><th style="color:var(--secondary-text);">Name</th><th style="color:var(--secondary-text);">Action</th></tr>';
+                let html = '<table>';
+                html += '<tr><th>Part #</th><th>Name</th><th>Action</th></tr>';
                 parts.forEach(p => {
                     html += `
-                    <tr style="border-bottom: 1px solid var(--card-border);">
-                        <td style="padding:10px;">${p.part_number}</td>
-                        <td>${p.name} <span style="font-size:0.8em; color:var(--secondary-text);">(${p.category})</span></td>
-                        <td>
-                            <button onclick="editPart(${p.id})" style="background:#4facfe; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-weight:bold; margin-right: 5px;">Edit</button>
-                            <button onclick="deletePart(${p.id})" style="background:#ff4757; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-weight:bold;">Delete</button>
+                    <tr>
+                        <td style="font-family: monospace; font-size: 1.05rem; color: var(--accent-glow);">${p.part_number}</td>
+                        <td><strong style="font-size: 1.05rem;">${p.name}</strong> <span style="display:block; font-size:0.85em; color:var(--secondary-text); margin-top:4px;">${p.category}</span></td>
+                        <td style="white-space: nowrap; width: 1%;">
+                            <button onclick="editPart(${p.id})" class="action-edit"><i class="fa-solid fa-pen-to-square"></i> Edit</button>
+                            <button onclick="deletePart(${p.id})" class="action-delete"><i class="fa-solid fa-trash"></i> Delete</button>
                         </td>
                     </tr>`;
                 });
@@ -387,6 +596,8 @@
                 document.getElementById('p-type').value = part.part_type || 'Genuine';
                 document.getElementById('p-vehicle-id').value = part.vehicle_id || '';
                 document.getElementById('p-engine').value = part.engine_type || '';
+                document.getElementById('p-vehicle-brand').value = part.vehicle_brand || '';
+                document.getElementById('p-vehicle-model').value = part.vehicle_model || '';
                 document.getElementById('p-brand').value = part.brand || '';
                 document.getElementById('p-number').value = part.part_number;
                 document.getElementById('p-name').value = part.name;
@@ -527,7 +738,9 @@
                 description: document.getElementById('p-description').value,
                 category: document.getElementById('p-category').value,
                 compatible_genuine_numbers: document.getElementById('p-compatible').value,
-                specifications: currentSpecs
+                specifications: currentSpecs,
+                vehicle_brand: document.getElementById('p-vehicle-brand').value,
+                vehicle_model: document.getElementById('p-vehicle-model').value
             };
 
             try {
@@ -633,15 +846,15 @@
                 const users = await res.json();
                 const list = document.getElementById('users-list');
                 
-                let html = '<table style="width:100%; border-collapse: collapse; text-align: left;">';
-                html += '<tr style="border-bottom: 1px solid var(--card-border);"><th style="padding:10px; color:var(--secondary-text);">ID</th><th style="color:var(--secondary-text);">Username</th><th style="color:var(--secondary-text);">Action</th></tr>';
+                let html = '<table>';
+                html += '<tr><th>ID</th><th>Username</th><th>Action</th></tr>';
                 users.forEach(u => {
                     html += `
-                    <tr style="border-bottom: 1px solid var(--card-border);">
-                        <td style="padding:10px;">${u.id}</td>
-                        <td>${u.username}</td>
-                        <td>
-                            <button onclick="deleteUser(${u.id})" style="background:#ff4757; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-weight:bold;">Delete</button>
+                    <tr>
+                        <td style="color: var(--secondary-text);">${u.id}</td>
+                        <td style="font-weight: 600; font-size: 1.05rem;">${u.username}</td>
+                        <td style="white-space: nowrap; width: 1%;">
+                            <button onclick="deleteUser(${u.id})" class="action-delete"><i class="fa-solid fa-trash"></i> Delete</button>
                         </td>
                     </tr>`;
                 });

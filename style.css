@@ -1,22 +1,26 @@
 /* style.css - Premium Parts Catalog Styling */
 
 :root {
-    /* Color Palette - Modern Dark/Neon Aesthetic */
-    --bg-color: #0b111a;
-    --card-bg: rgba(26, 36, 51, 0.6);
-    --card-border: rgba(255, 255, 255, 0.08);
-    /* subtle white border for glass effect */
+    /* Color Palette - Premium Amethyst / Violet Aesthetic */
+    --bg-color: #050505;
+    --bg-image: url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop');
+    
+    --card-bg: rgba(15, 10, 20, 0.55);
+    --card-border: rgba(255, 255, 255, 0.12);
 
     --primary-text: #ffffff;
-    --secondary-text: #94a3ba;
+    --secondary-text: #a89bb8;
 
-    --accent-glow: #00d2ff;
-    --accent-glow-secondary: #3a7bd5;
-    --accent-primary: #0088ff;
+    --accent-glow: #e0aaff;
+    --accent-glow-secondary: #9d4edd;
+    --accent-primary: #7b2cbf;
 
-    --input-bg: rgba(15, 23, 42, 0.8);
-    --input-focus: rgba(0, 210, 255, 0.2);
-    --input-border: rgba(255, 255, 255, 0.1);
+    --input-bg: rgba(0, 0, 0, 0.4);
+    --input-focus: rgba(157, 78, 221, 0.3);
+    --input-border: rgba(255, 255, 255, 0.15);
+
+    --shadow-glow: rgba(157, 78, 221, 0.3);
+    --shadow-glow-strong: rgba(157, 78, 221, 0.5);
 
     --transition-speed: 0.3s;
     --border-radius-lg: 16px;
@@ -25,32 +29,37 @@
 
     --font-main: 'Outfit', sans-serif;
     
-    --glass-bg: rgba(255, 255, 255, 0.03);
-    --glass-bg-hover: rgba(255, 255, 255, 0.05);
+    --glass-bg: rgba(255, 255, 255, 0.05);
+    --glass-bg-hover: rgba(255, 255, 255, 0.08);
     --btn-faint-bg: rgba(255, 255, 255, 0.1);
     --btn-faint-text: #ffffff;
 }
 
 [data-theme="light"] {
-    --bg-color: #f0f4f8;
-    --card-bg: rgba(255, 255, 255, 0.85);
-    --card-border: rgba(0, 0, 0, 0.1);
+    --bg-color: #e5e0e8;
+    --bg-image: url('https://images.unsplash.com/photo-1557682250-33bd709cbe85?q=80&w=2529&auto=format&fit=crop');
+    
+    --card-bg: rgba(255, 255, 255, 0.45);
+    --card-border: rgba(255, 255, 255, 0.6);
 
-    --primary-text: #1e293b;
-    --secondary-text: #475569;
+    --primary-text: #2d1b3d;
+    --secondary-text: #5c4d6b;
 
-    --accent-glow: #0096ff;
-    --accent-glow-secondary: #0052cc;
-    --accent-primary: #0066ff;
+    --accent-glow: #9d4edd;
+    --accent-glow-secondary: #5a189a;
+    --accent-primary: #7b2cbf;
 
-    --input-bg: rgba(255, 255, 255, 0.9);
-    --input-focus: rgba(0, 102, 255, 0.2);
-    --input-border: rgba(0, 0, 0, 0.2);
+    --input-bg: rgba(255, 255, 255, 0.5);
+    --input-focus: rgba(123, 44, 191, 0.2);
+    --input-border: rgba(255, 255, 255, 0.5);
 
-    --glass-bg: rgba(0, 0, 0, 0.02);
-    --glass-bg-hover: rgba(0, 0, 0, 0.06);
-    --btn-faint-bg: rgba(0, 0, 0, 0.08);
-    --btn-faint-text: #1e293b;
+    --shadow-glow: rgba(123, 44, 191, 0.2);
+    --shadow-glow-strong: rgba(123, 44, 191, 0.4);
+
+    --glass-bg: rgba(255, 255, 255, 0.4);
+    --glass-bg-hover: rgba(255, 255, 255, 0.5);
+    --btn-faint-bg: rgba(123, 44, 191, 0.1);
+    --btn-faint-text: #7b2cbf;
 }
 
 /* Global Reset */
@@ -63,9 +72,9 @@
 
 body {
     background-color: var(--bg-color);
-    background-image:
-        radial-gradient(circle at top right, rgba(0, 136, 255, 0.15), transparent 40%),
-        radial-gradient(circle at bottom left, rgba(0, 210, 255, 0.1), transparent 50%);
+    background-image: var(--bg-image);
+    background-size: cover;
+    background-position: center;
     background-attachment: fixed;
     color: var(--primary-text);
     min-height: 100vh;
@@ -170,7 +179,7 @@ body {
 
 .main-header span {
     color: var(--accent-primary);
-    text-shadow: 0 0 15px rgba(0, 136, 255, 0.4);
+    text-shadow: 0 0 15px var(--shadow-glow);
 }
 
 .main-content {
@@ -207,7 +216,7 @@ body {
     color: white;
     border-color: var(--accent-primary);
     transform: translateY(-2px);
-    box-shadow: 0 4px 15px rgba(0, 136, 255, 0.3);
+    box-shadow: 0 4px 15px var(--shadow-glow);
 }
 
 /* Custom Navigation Toggles */
@@ -263,7 +272,7 @@ body {
     border-radius: 50px;
     z-index: 1;
     transition: transform var(--transition-speed) cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    box-shadow: 0 4px 15px rgba(0, 136, 255, 0.3);
+    box-shadow: 0 4px 15px var(--shadow-glow);
 }
 
 #tab-vehicle:checked~.toggle-slider {
@@ -410,7 +419,7 @@ select option {
     border-radius: 50px;
     cursor: pointer;
     transition: all var(--transition-speed);
-    box-shadow: 0 8px 20px rgba(0, 136, 255, 0.3);
+    box-shadow: 0 8px 20px var(--shadow-glow);
     display: flex;
     align-items: center;
     gap: 12px;
@@ -418,13 +427,13 @@ select option {
 
 .btn-primary:hover {
     transform: translateY(-3px);
-    box-shadow: 0 12px 25px rgba(0, 136, 255, 0.5);
+    box-shadow: 0 12px 25px var(--shadow-glow-strong);
     background: linear-gradient(135deg, var(--accent-glow), var(--accent-primary));
 }
 
 .btn-primary:active {
     transform: translateY(1px);
-    box-shadow: 0 5px 15px rgba(0, 136, 255, 0.3);
+    box-shadow: 0 5px 15px var(--shadow-glow);
 }
 
 .btn-primary i {
@@ -520,7 +529,7 @@ select option {
 .result-item:hover {
     transform: translateY(-2px);
     background: var(--glass-bg-hover);
-    border-color: rgba(0, 210, 255, 0.3);
+    border-color: var(--input-focus);
 }
 
 .result-info h3 {
@@ -585,22 +594,20 @@ select option {
     align-items: center;
     gap: 8px;
     padding: 10px 20px;
-    background: rgba(0, 136, 255, 0.1);
-    border: 1px solid var(--accent-primary);
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-glow-secondary));
+    border: none;
     border-radius: var(--border-radius-sm);
-    color: var(--accent-primary);
+    color: #ffffff !important;
     text-decoration: none;
-    font-weight: 500;
+    font-weight: 600;
     font-size: 0.95rem;
     transition: all var(--transition-speed);
-    box-shadow: 0 4px 15px rgba(0, 136, 255, 0.15);
+    box-shadow: 0 4px 15px var(--shadow-glow);
 }
 
 .admin-link:hover {
-    background: var(--accent-primary);
-    color: white;
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(0, 136, 255, 0.3);
+    box-shadow: 0 6px 20px var(--shadow-glow-strong);
 }
 
 .admin-link i {
