@@ -9,12 +9,15 @@ A modern, high-performance web application for searching and managing automotive
   - **Search by Vehicle**: Advanced filtering through Brand → Model → Submodel → Part.
 - **Dynamic Vehicle Filtering**: Real-time population of model and submodel dropdowns based on vehicle selection.
 - **Premium UI/UX**:
-  - Modern "Glassmorphism" design with blur effects.
-  - Smooth transitions and micro-interactions.
+  - Modern "Glassmorphism" design with a premium Amethyst Violet aesthetic.
+  - Smooth transitions, micro-interactions, and built-in Full-Screen Kiosk Mode.
   - Responsive layout for desktop and mobile devices.
+- **Offline Mobile App**:
+  - Includes a React Native Android application (`PartsMobile`).
+  - One-click sync to download the server's database for 100% offline part searching in the field.
 - **Admin Dashboard**:
-  - Dedicated interface for adding new vehicles and parts.
-  - Secure data management.
+  - Dedicated interface for adding new vehicles, parts, and managing users.
+  - Secure data management and backup utilities.
 
 ## Tech Stack
 
@@ -75,17 +78,17 @@ You must have the following core software installed on your computer to run the 
 
 ### Running the Server
 
-Start the backend server using the following command:
+Start the backend server by double-clicking the `start_app.bat` file, or using the command line:
 
 ```bash
 node server.js
 ```
 
-The server will start on `http://localhost:3000`.
+*(Note: On Windows, `start_app.bat` will automatically launch Microsoft Edge in Kiosk mode for a full-screen, windowless experience.)*
 
 ### Accessing the Application
 
-- **User Interface**: Open `http://localhost:3000` in your web browser.
+- **User Interface**: Open `http://localhost:3000` (or your assigned port) in your web browser.
 - **Admin Dashboard**: Open `http://localhost:3000/admin.html` in your web browser.
 
 ### 🌐 Accessing Over Local Network (Wi-Fi)
@@ -103,6 +106,14 @@ Your entire database is stored seamlessly in a single file (`parts.sqlite`). You
 1. **Backup**: Log into the Admin Dashboard and click the **Backup** tab. Click **Download Database** to instantly save a copy of all your parts and data directly to your computer.
 2. **Restore**: Go to a different computer (or use the remote access method above). Log into that computer's Admin Dashboard, go to the **Backup** tab, and click **Select File & Restore** to cleanly overwrite its catalog with your new parts.
 
+### 🔄 Applying System Updates
+
+You can update the system without reinstalling Node or losing your database.
+1. Download the new `update.zip` file provided by the developer.
+2. Place `update.zip` inside your `parts_catalog` folder.
+3. Run `apply_update.bat`.
+4. The script will extract the files, install any new dependencies, and safely preserve your `parts.sqlite` database!
+
 ## Project Structure
 
 ```
@@ -113,6 +124,9 @@ parts_catalog/
 ├── style.css               # Global styles
 ├── script.js               # Frontend logic
 ├── parts.sqlite            # Database file (auto-generated)
+├── apply_update.bat        # Automated patch updater
+├── start_app.bat           # Server launch and Kiosk mode trigger
+├── PartsMobile/            # React Native Expo Android App source code
 └── package.json            # Project dependencies
 ```
 

@@ -281,7 +281,7 @@ export default function App() {
           <Text style={{color: '#ff9ff3', fontSize: 13, marginTop: 4, fontWeight: '500'}}>⚙️ {item.engine_fitment}</Text>
         ) : null}
 
-        <TouchableOpacity style={{marginTop: 15, paddingVertical: 10, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 8, alignItems: 'center'}} onPress={() => {
+        <TouchableOpacity style={{marginTop: 15, paddingVertical: 10, backgroundColor: 'rgba(157, 78, 221, 0.2)', borderRadius: 8, alignItems: 'center'}} onPress={() => {
             Alert.alert(
                 "Part Details", 
                 `Name: ${item.name}\nNumber: ${item.part_number}\nCategory: ${item.category}\n\nCompatible Vehicles:\n${item.vehicle_fits || 'None / Unknown'}\n\nFits Engine:\n${item.engine_fitment ? item.engine_fitment.replace('Engine: ', '') : 'Universal'}`
@@ -367,7 +367,7 @@ export default function App() {
 
         <View style={styles.resultsContainer}>
           {loading ? (
-             <ActivityIndicator size="large" color="#4facfe" style={{ marginTop: 50 }} />
+             <ActivityIndicator size="large" color="#e0aaff" style={{ marginTop: 50 }} />
           ) : (
             <FlatList
               data={results}
@@ -387,26 +387,26 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0f172a' },
-  header: { padding: 20, paddingTop: Platform.OS === 'android' ? 40 : 20, alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#1e293b' },
+  container: { flex: 1, backgroundColor: '#050505' },
+  header: { padding: 20, paddingTop: Platform.OS === 'android' ? 40 : 20, alignItems: 'center', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
   title: { color: 'white', fontSize: 24, fontWeight: '700' },
-  titleHighlight: { color: '#4facfe' },
+  titleHighlight: { color: '#e0aaff' },
   syncContainer: { flexDirection: 'row', marginTop: 15, width: '100%' },
-  serverInput: { flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', color: '#888', borderRadius: 8, padding: 8, fontSize: 13, marginRight: 10 },
-  syncBtn: { backgroundColor: '#3b82f6', paddingHorizontal: 15, justifyContent: 'center', borderRadius: 8 },
+  serverInput: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', color: '#fff', borderRadius: 8, padding: 8, fontSize: 13, marginRight: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
+  syncBtn: { backgroundColor: '#7b2cbf', paddingHorizontal: 15, justifyContent: 'center', borderRadius: 8 },
   syncBtnText: { color: 'white', fontSize: 13, fontWeight: 'bold' },
-  tabContainer: { flexDirection: 'row', margin: 20, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 10, overflow: 'hidden', padding: 4 },
+  tabContainer: { flexDirection: 'row', margin: 20, backgroundColor: 'rgba(15,10,20,0.55)', borderRadius: 10, overflow: 'hidden', padding: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
   tab: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 8 },
-  activeTab: { backgroundColor: '#4facfe' },
+  activeTab: { backgroundColor: '#7b2cbf' },
   tabText: { color: '#888', fontWeight: '600' },
   activeTabText: { color: 'white' },
   searchContainer: { paddingHorizontal: 20 },
-  input: { backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', borderRadius: 10, padding: 15, marginBottom: 15, borderWidth: 1, borderColor: '#1e293b' },
+  input: { backgroundColor: 'rgba(0,0,0,0.4)', color: 'white', borderRadius: 10, padding: 15, marginBottom: 15, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
   row: { flexDirection: 'row' },
-  primaryButton: { backgroundColor: '#4facfe', padding: 15, borderRadius: 10, alignItems: 'center', shadowColor: '#4facfe', shadowOpacity: 0.4, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
+  primaryButton: { backgroundColor: '#7b2cbf', padding: 15, borderRadius: 10, alignItems: 'center', shadowColor: '#9d4edd', shadowOpacity: 0.4, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
   buttonText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
   resultsContainer: { flex: 1, paddingHorizontal: 20, paddingTop: 20 },
-  card: { backgroundColor: 'rgba(255,255,255,0.03)', padding: 15, borderRadius: 12, marginBottom: 15, borderWidth: 1, borderColor: '#1e293b' },
+  card: { backgroundColor: 'rgba(15,10,20,0.55)', padding: 15, borderRadius: 12, marginBottom: 15, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
   cardHeader: { marginBottom: 10 },
   partName: { color: 'white', fontSize: 18, fontWeight: '600' },
   partNum: { color: '#888', fontSize: 14, fontWeight: 'normal' },
