@@ -270,9 +270,14 @@
                 <h1 style="font-size: 2.2rem; display: flex; align-items: center; gap: 15px; margin: 0;"><i class="fa-solid fa-shield-halved logo-icon" style="font-size: 2rem;"></i> System <span>Admin</span></h1>
                 <p style="color: var(--secondary-text); margin-top: 5px; font-size: 1.05rem;">Manage your catalog database securely</p>
             </div>
-            <button class="theme-toggle" id="theme-toggle" title="Toggle Light/Dark Mode" style="position: static;">
-                <i class="fa-solid fa-moon"></i>
-            </button>
+            <div style="display: flex; gap: 15px; align-items: center;">
+                <button class="theme-toggle" id="fullscreen-toggle" title="Toggle Full Screen" style="position: static;">
+                    <i class="fa-solid fa-expand"></i>
+                </button>
+                <button class="theme-toggle" id="theme-toggle" title="Toggle Light/Dark Mode" style="position: static;">
+                    <i class="fa-solid fa-moon"></i>
+                </button>
+            </div>
         </header>
 
         <main class="main-content" style="padding: 0; background: transparent; border: none; box-shadow: none; backdrop-filter: none;">
@@ -997,6 +1002,30 @@
                 themeIcon.classList.add('fa-moon');
             }
         });
+
+        // Full Screen Toggle Logic
+        const fullscreenToggle = document.getElementById('fullscreen-toggle');
+        if (fullscreenToggle) {
+            fullscreenToggle.addEventListener('click', () => {
+                if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen().catch(err => {
+                        console.error(`Error attempting to enable full-screen mode: ${err.message}`);
+                    });
+                } else {
+                    if (document.exitFullscreen) {
+                        document.exitFullscreen();
+                    }
+                }
+            });
+
+            document.addEventListener('fullscreenchange', () => {
+                if (!document.fullscreenElement) {
+                    fullscreenToggle.innerHTML = '<i class="fa-solid fa-expand"></i>';
+                } else {
+                    fullscreenToggle.innerHTML = '<i class="fa-solid fa-compress"></i>';
+                }
+            });
+        }
     </script>
 </body>
 

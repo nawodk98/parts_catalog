@@ -311,4 +311,28 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- Full Screen Toggle Logic ---
+    const fullscreenToggle = document.getElementById('fullscreen-toggle');
+    if (fullscreenToggle) {
+        fullscreenToggle.addEventListener('click', () => {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.error(`Error attempting to enable full-screen mode: ${err.message}`);
+                });
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            }
+        });
+
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement) {
+                fullscreenToggle.innerHTML = '<i class="fa-solid fa-expand"></i>';
+            } else {
+                fullscreenToggle.innerHTML = '<i class="fa-solid fa-compress"></i>';
+            }
+        });
+    }
+
 });

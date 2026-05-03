@@ -542,9 +542,11 @@ const server = app.listen(PORT, '0.0.0.0', () => {
     }
     console.log(`=================================================\n`);
 
-    // Automatically open the website in the default browser
+    // Automatically open the website in Microsoft Edge kiosk mode (full screen, no window) if on Windows, else default browser
     const { exec } = require('child_process');
-    const startCmd = process.platform === 'win32' ? `start ${url}` : process.platform === 'darwin' ? `open ${url}` : `xdg-open ${url}`;
+    const startCmd = process.platform === 'win32' 
+        ? `start msedge --kiosk ${url} || start chrome --kiosk ${url} || start ${url}` 
+        : process.platform === 'darwin' ? `open -a "Google Chrome" --args --kiosk ${url} || open ${url}` : `xdg-open ${url}`;
     exec(startCmd, (err) => {
         if (err) console.error('Failed to open browser automatically:', err.message);
     });
