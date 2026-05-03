@@ -125,7 +125,7 @@ export default function App() {
       const query = `
           SELECT p.*,
                  (CASE WHEN p.engine_type IS NOT NULL AND p.engine_type != '' THEN 'Engine: ' || p.engine_type ELSE '' END) as engine_fitment,
-                 GROUP_CONCAT(DISTINCT UPPER(v.brand) || ' ' || v.model || ' ' || v.submodel || COALESCE(' ' || NULLIF(v.engine_type, ''), '')) as vehicle_fits
+                 GROUP_CONCAT(DISTINCT COALESCE(UPPER(v.brand) || ' ' || v.model || ' ' || COALESCE(v.submodel, '') || COALESCE(' ' || NULLIF(v.engine_type, ''), ''), NULLIF(TRIM(COALESCE(UPPER(p.vehicle_brand), '') || ' ' || COALESCE(p.vehicle_model, '')), ''))) as vehicle_fits
           FROM parts p
           LEFT JOIN part_compatibility pc ON p.id = pc.oem_part_id
           LEFT JOIN parts gp ON pc.genuine_part_number = gp.part_number
@@ -135,6 +135,9 @@ export default function App() {
              OR UPPER(p.description) LIKE ?
              OR UPPER(p.brand) LIKE ?
              OR UPPER(p.engine_type) LIKE ?
+             OR UPPER(p.vehicle_brand) LIKE ?
+             OR UPPER(p.vehicle_model) LIKE ?
+             OR UPPER(p.specifications) LIKE ?
              OR UPPER(v.brand) LIKE ?
              OR UPPER(v.model) LIKE ?
              OR UPPER(v.submodel) LIKE ?
@@ -147,11 +150,12 @@ export default function App() {
                  WHERE UPPER(p2.part_number) LIKE ? 
                     OR UPPER(p2.name) LIKE ?
                     OR UPPER(p2.description) LIKE ?
+                    OR UPPER(p2.specifications) LIKE ?
              )
           GROUP BY p.id
       `;
       const q = `%${partQuery.toUpperCase()}%`;
-      const params = [q, q, q, q, q, q, q, q, q, q, q, q, q];
+      const params = [q, q, q, q, q, q, q, q, q, q, q, q, q, q, q, q, q];
       const res = await executeQuery(query, params);
       setResults(res || []);
     } catch (e) {
@@ -220,7 +224,7 @@ export default function App() {
       let query = `
           SELECT p.*,
                  (CASE WHEN p.engine_type IS NOT NULL AND p.engine_type != '' THEN 'Engine: ' || p.engine_type ELSE '' END) as engine_fitment,
-                 GROUP_CONCAT(DISTINCT UPPER(v.brand) || ' ' || v.model || ' ' || v.submodel || COALESCE(' ' || NULLIF(v.engine_type, ''), '')) as vehicle_fits
+                 GROUP_CONCAT(DISTINCT COALESCE(UPPER(v.brand) || ' ' || v.model || ' ' || COALESCE(v.submodel, '') || COALESCE(' ' || NULLIF(v.engine_type, ''), ''), NULLIF(TRIM(COALESCE(UPPER(p.vehicle_brand), '') || ' ' || COALESCE(p.vehicle_model, '')), ''))) as vehicle_fits
           FROM parts p
           LEFT JOIN part_compatibility pc ON p.id = pc.oem_part_id
           LEFT JOIN parts gp ON pc.genuine_part_number = gp.part_number
@@ -249,6 +253,18 @@ export default function App() {
 
   const renderItem = ({ item }) => {
     const isOem = item.part_type === 'OEM';
+    
+    let parsedSpecs = null;
+    let alertSpecs = '';
+    if (item.specifications) {
+      try {
+        parsedSpecs = JSON.parse(item.specifications);
+        alertSpecs = '\n\nSpecifications:\n';
+        for (const [key, val] of Object.entries(parsedSpecs)) {
+            alertSpecs += `${key}: ${val}\n`;
+        }
+      } catch(e) {}
+    }
 
     return (
       <View style={styles.card}>
@@ -273,6 +289,16 @@ export default function App() {
           <Text style={styles.descText}>{item.description}</Text>
         ) : null}
 
+        {parsedSpecs && Object.keys(parsedSpecs).length > 0 ? (
+          <View style={{flexDirection: 'row', flexWrap: 'wrap', marginTop: 10, gap: 8}}>
+            {Object.entries(parsedSpecs).map(([key, val]) => (
+              <View key={key} style={{backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.12)', borderWidth: 1, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20}}>
+                <Text style={{fontSize: 12, color: '#a89bb8'}}><Text style={{color: '#e0aaff', fontWeight: 'bold'}}>{key}:</Text> {val}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
         {item.vehicle_fits ? (
           <Text style={{color: '#4facfe', fontSize: 13, marginTop: 8, fontWeight: '500'}}>✓ Fits: {item.vehicle_fits}</Text>
         ) : null}
@@ -284,7 +310,7 @@ export default function App() {
         <TouchableOpacity style={{marginTop: 15, paddingVertical: 10, backgroundColor: 'rgba(157, 78, 221, 0.2)', borderRadius: 8, alignItems: 'center'}} onPress={() => {
             Alert.alert(
                 "Part Details", 
-                `Name: ${item.name}\nNumber: ${item.part_number}\nCategory: ${item.category}\n\nCompatible Vehicles:\n${item.vehicle_fits || 'None / Unknown'}\n\nFits Engine:\n${item.engine_fitment ? item.engine_fitment.replace('Engine: ', '') : 'Universal'}`
+                `Name: ${item.name}\nNumber: ${item.part_number}\nCategory: ${item.category}${alertSpecs}\n\nCompatible Vehicles:\n${item.vehicle_fits || 'None / Unknown'}\n\nFits Engine:\n${item.engine_fitment ? item.engine_fitment.replace('Engine: ', '') : 'Universal'}`
             );
         }}>
             <Text style={{color: 'white', fontWeight: 'bold'}}>View Details</Text>
