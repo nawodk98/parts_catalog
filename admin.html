@@ -282,8 +282,7 @@
 
         <main class="main-content" style="padding: 0; background: transparent; border: none; box-shadow: none; backdrop-filter: none;">
             <div class="admin-nav" id="admin-nav" style="display: none;">
-                <button class="admin-btn active" id="nav-vehicle" onclick="switchSection('vehicle')"><i class="fa-solid fa-car"></i> Add Vehicle</button>
-                <button class="admin-btn" id="nav-part" onclick="switchSection('part')"><i class="fa-solid fa-cogs"></i> Add Part</button>
+                <button class="admin-btn active" id="nav-part" onclick="switchSection('part')"><i class="fa-solid fa-cogs"></i> Add Part</button>
                 <button class="admin-btn" id="nav-manage" onclick="switchSection('manage')"><i class="fa-solid fa-list-check"></i> Manage Parts</button>
                 <button class="admin-btn" id="nav-users" onclick="switchSection('users')"><i class="fa-solid fa-users"></i> Manage Users</button>
                 <button class="admin-btn" id="nav-backup" onclick="switchSection('backup')" style="background: var(--input-focus); border-color: var(--accent-glow); color: var(--accent-glow);"><i class="fa-solid fa-database"></i> Backup / Restore</button>
@@ -319,33 +318,6 @@
             <datalist id="dl-p-category"></datalist>
             <datalist id="dl-engine"></datalist>
 
-            <!-- Vehicle Form -->
-            <div id="section-vehicle" class="form-section form-wrapper">
-                <h2><i class="fa-solid fa-car-side" style="color: var(--accent-primary);"></i> Create Vehicle Configuration</h2>
-                <form id="vehicleForm">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                        <div class="form-group">
-                            <label>Brand (e.g., Toyota)</label>
-                            <input type="text" id="v-brand" list="dl-v-brand" class="premium-input" required placeholder="Enter vehicle brand">
-                        </div>
-                        <div class="form-group">
-                            <label>Model (e.g., Camry)</label>
-                            <input type="text" id="v-model" list="dl-v-model" class="premium-input" required placeholder="Enter vehicle model">
-                        </div>
-                        <div class="form-group">
-                            <label>Sub Model (e.g., LE, XSE)</label>
-                            <input type="text" id="v-submodel" list="dl-v-submodel" class="premium-input" required placeholder="Enter sub model">
-                        </div>
-                        <div class="form-group">
-                            <label>Engine Type (e.g., 2KD)</label>
-                            <input type="text" id="v-engine" list="dl-engine" class="premium-input" placeholder="Enter engine type">
-                        </div>
-                    </div>
-                    <button type="submit" class="btn-primary" style="margin-top: 10px;"><i class="fa-solid fa-floppy-disk"></i> Save Vehicle</button>
-                    <p id="v-success" class="success-msg"><i class="fa-solid fa-circle-check"></i> Vehicle added successfully!</p>
-                    <p id="v-error" class="error-msg"><i class="fa-solid fa-circle-exclamation"></i> Error adding vehicle.</p>
-                </form>
-            </div>
 
             <!-- Part Form -->
             <div id="section-part" class="form-section form-wrapper">
@@ -359,24 +331,12 @@
                                 <option value="OEM">OEM / Alternative (Matches genuine parts)</option>
                             </select>
                         </div>
-                        <div class="form-group" id="p-vehicle-div">
-                            <label>Assign to Vehicle</label>
-                            <select id="p-vehicle-id" style="width:100%" class="premium-input" style="padding: 15px;">
-                                <option value="">-- None / Engine Only --</option>
-                            </select>
-                        </div>
+
                         <div class="form-group" id="p-engine-div">
                             <label>Assign to Engine (Optional, fits ALL with this engine)</label>
                             <input type="text" id="p-engine" list="dl-engine" class="premium-input" placeholder="e.g. 2KD">
                         </div>
-                        <div class="form-group" id="p-vehicle-brand-div">
-                            <label>Vehicle Brand (Optional text)</label>
-                            <input type="text" id="p-vehicle-brand" list="dl-v-brand" class="premium-input" placeholder="e.g. Toyota">
-                        </div>
-                        <div class="form-group" id="p-vehicle-model-div">
-                            <label>Vehicle Model (Optional text)</label>
-                            <input type="text" id="p-vehicle-model" list="dl-v-model" class="premium-input" placeholder="e.g. Corolla 121">
-                        </div>
+
                         <div class="form-group" id="p-oem-brand-div" style="display: none;">
                             <label>OEM Brand Name (e.g., Bosch)</label>
                             <input type="text" id="p-brand" list="dl-p-brand" class="premium-input" placeholder="Enter brand">
@@ -503,7 +463,6 @@
             document.getElementById(`section-${section}`).classList.add('active');
             document.getElementById(`nav-${section}`).classList.add('active');
 
-            if (section === 'part') loadVehicles();
             if (section === 'manage') loadManageParts();
         }
 
@@ -599,10 +558,7 @@
                 
                 editingPartId = id;
                 document.getElementById('p-type').value = part.part_type || 'Genuine';
-                document.getElementById('p-vehicle-id').value = part.vehicle_id || '';
                 document.getElementById('p-engine').value = part.engine_type || '';
-                document.getElementById('p-vehicle-brand').value = part.vehicle_brand || '';
-                document.getElementById('p-vehicle-model').value = part.vehicle_model || '';
                 document.getElementById('p-brand').value = part.brand || '';
                 document.getElementById('p-number').value = part.part_number;
                 document.getElementById('p-name').value = part.name;
@@ -639,38 +595,7 @@
             switchSection('manage');
         }
 
-        // Add Vehicle
-        document.getElementById('vehicleForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const data = {
-                brand: document.getElementById('v-brand').value,
-                model: document.getElementById('v-model').value,
-                submodel: document.getElementById('v-submodel').value,
-                engine_type: document.getElementById('v-engine').value
-            };
 
-            try {
-                const res = await apiFetch('/api/vehicles', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-
-                if (res.ok) {
-                    document.getElementById('v-success').style.display = 'block';
-                    document.getElementById('v-error').style.display = 'none';
-                    // Do not reset full form. Only clear specific highly-variable fields if desired (like submodel).
-                    document.getElementById('v-submodel').value = '';
-                    setTimeout(() => document.getElementById('v-success').style.display = 'none', 3000);
-                    loadSuggestions(); // refresh datalists
-                } else {
-                    document.getElementById('v-error').textContent = (await res.json()).error;
-                    document.getElementById('v-error').style.display = 'block';
-                }
-            } catch (err) {
-                document.getElementById('v-error').style.display = 'block';
-            }
-        });
 
         // Autocomplete loader
         async function loadSuggestions() {
@@ -696,35 +621,18 @@
             }
         }
 
-        // Load Vehicles for Part assignment
-        async function loadVehicles() {
-            try {
-                const res = await apiFetch('/api/vehicles/raw');
-                const vehicles = await res.json();
-                const sel = document.getElementById('p-vehicle-id');
-                sel.innerHTML = '<option value="">-- None / Engine Only --</option>';
-                vehicles.forEach(v => {
-                    sel.innerHTML += `<option value="${v.id}">${v.brand.toUpperCase()} ${v.model} (${v.submodel}) ${v.engine_type || ''}</option>`;
-                });
-            } catch (e) {
-                console.error("Failed to load vehicles", e);
-            }
-        }
+
 
         // Toggle Form Fields based on Part Type
         function togglePartType() {
             const type = document.getElementById('p-type').value;
-            const vehicleDiv = document.getElementById('p-vehicle-div');
             const oemBrandDiv = document.getElementById('p-oem-brand-div');
             const compatibleDiv = document.getElementById('p-compatible-div');
-            const vehicleSelect = document.getElementById('p-vehicle-id');
 
             if (type === 'Genuine') {
-                vehicleDiv.style.display = 'block';
                 oemBrandDiv.style.display = 'none';
                 compatibleDiv.style.display = 'none';
             } else {
-                vehicleDiv.style.display = 'none';
                 oemBrandDiv.style.display = 'block';
                 compatibleDiv.style.display = 'block';
             }
@@ -736,16 +644,13 @@
             const data = {
                 part_type: document.getElementById('p-type').value,
                 brand: document.getElementById('p-brand').value,
-                vehicle_id: document.getElementById('p-vehicle-id').value,
                 engine_type: document.getElementById('p-engine').value,
                 part_number: document.getElementById('p-number').value,
                 name: document.getElementById('p-name').value,
                 description: document.getElementById('p-description').value,
                 category: document.getElementById('p-category').value,
                 compatible_genuine_numbers: document.getElementById('p-compatible').value,
-                specifications: currentSpecs,
-                vehicle_brand: document.getElementById('p-vehicle-brand').value,
-                vehicle_model: document.getElementById('p-vehicle-model').value
+                specifications: currentSpecs
             };
 
             try {
@@ -832,7 +737,7 @@
                 if (res.ok) {
                     document.getElementById('section-login').classList.remove('active');
                     document.getElementById('admin-nav').style.display = 'flex';
-                    switchSection('vehicle');
+                    switchSection('part');
                     loadSuggestions();
                 } else {
                     logout();
