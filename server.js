@@ -266,70 +266,7 @@ app.get('/api/parts/search', (req, res) => {
     });
 });
 
-// Search Parts by Vehicle Details
-app.get('/api/parts/vehicle', (req, res) => {
-    const { brand, model, submodel, engine_type, category } = req.query;
 
-    let vQuery = `SELECT id, engine_type FROM vehicles WHERE UPPER(brand) = UPPER(?) AND UPPER(model) = UPPER(?) AND UPPER(submodel) = UPPER(?)`;
-    let vParams = [brand, model, submodel];
-    if (engine_type) {
-        vQuery += ` AND UPPER(engine_type) = UPPER(?)`;
-        vParams.push(engine_type);
-    }
-
-    db.get(vQuery, vParams,
-        (err, vehicle) => {
-            if (err) return res.status(500).json({ error: err.message });
-            if (!vehicle && !engine_type) return res.json([]);
-            
-            // If vehicle matched, find parts matching the vehicle ID or its engine
-            // If no vehicle matched but user provided engine, just search by engine
-
-            let query = `
-                SELECT p.*,
-                       (CASE WHEN p.engine_type IS NOT NULL AND p.engine_type != '' THEN 'Engine: ' || p.engine_type ELSE '' END) as engine_fitment,
-                       GROUP_CONCAT(DISTINCT COALESCE(UPPER(v.brand) || ' ' || v.model || ' ' || COALESCE(v.submodel, '') || COALESCE(' ' || NULLIF(v.engine_type, ''), ''), NULLIF(TRIM(COALESCE(UPPER(p.vehicle_brand), '') || ' ' || COALESCE(p.vehicle_model, '')), ''))) as vehicle_fits
-                FROM parts p
-                LEFT JOIN part_compatibility pc ON p.id = pc.oem_part_id
-                LEFT JOIN parts gp ON pc.genuine_part_number = gp.part_number
-                LEFT JOIN vehicles v ON p.vehicle_id = v.id OR gp.vehicle_id = v.id
-                WHERE 1=1 AND (
-            `;
-            
-            let params = [];
-            const conditions = [];
-
-            if (vehicle) {
-                conditions.push(`(p.vehicle_id = ?)`, `(pc.genuine_part_number IN (SELECT part_number FROM parts WHERE vehicle_id = ?))`);
-                params.push(vehicle.id, vehicle.id);
-                if (vehicle.engine_type) {
-                    conditions.push(`(UPPER(p.engine_type) = UPPER(?) AND p.engine_type != '')`);
-                    params.push(vehicle.engine_type);
-                }
-            }
-            if (engine_type) {
-                conditions.push(`(UPPER(p.engine_type) = UPPER(?) AND p.engine_type != '')`);
-                params.push(engine_type);
-            }
-
-            if (conditions.length === 0) {
-                 return res.json([]);
-            }
-
-            query += conditions.join(' OR ') + ` )`;
-
-            if (category && category !== 'All') {
-                query += ` AND UPPER(p.category) = UPPER(?)`;
-                params.push(category);
-            }
-            query += ` GROUP BY p.id`;
-
-            db.all(query, params, (err, rows) => {
-                if (err) return res.status(500).json({ error: err.message });
-                res.json(rows);
-            });
-        });
-});
 // Download Database Endpoint for Offline Mobile Sync
 app.get('/api/database/download', (req, res) => {
     res.download(dbPath, 'parts.sqlite', (err) => {
