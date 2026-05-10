@@ -4,6 +4,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Selectors ---
     const inputPartNumber = document.getElementById('part-number-input');
+    const inputSpecName = document.getElementById('spec-name-input');
+    const inputSpecKey = document.getElementById('spec-key-input');
+    const inputSpecValue = document.getElementById('spec-value-input');
+
+    const searchRadios = document.querySelectorAll('input[name="search-type"]');
+    const searchPanels = document.querySelectorAll('.search-panel');
 
     // Action and Result Tracking
     const btnFind = document.getElementById('btn-find');
@@ -23,19 +29,60 @@ document.addEventListener('DOMContentLoaded', () => {
     inputPartNumber.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') performSearch();
     });
+    inputSpecName.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') performSearch();
+    });
+    inputSpecKey.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') performSearch();
+    });
+    inputSpecValue.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') performSearch();
+    });
+
+    // --- Toggle Logic ---
+    if (searchRadios) {
+        searchRadios.forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                searchPanels.forEach(p => p.classList.remove('active'));
+                document.getElementById(`panel-${e.target.value}`).classList.add('active');
+            });
+        });
+    }
 
     async function performSearch() {
         let queryDesc = '';
         let url = '';
 
-        const val = inputPartNumber.value.trim();
-        if (!val) {
-            alert('Please enter a part number.');
-            inputPartNumber.focus();
-            return;
+        const activeMode = document.querySelector('input[name="search-type"]:checked').value;
+
+        if (activeMode === 'part') {
+            const val = inputPartNumber.value.trim();
+            if (!val) {
+                alert('Please enter a search query.');
+                inputPartNumber.focus();
+                return;
+            }
+            queryDesc = `Universal: ${val.toUpperCase()}`;
+            url = `/api/parts/search?q=${encodeURIComponent(val)}`;
+        } else if (activeMode === 'specs') {
+            const name = inputSpecName.value.trim();
+            const key = inputSpecKey.value.trim();
+            const val = inputSpecValue.value.trim();
+
+            if (!name && !key && !val) {
+                alert('Please enter at least one specification criteria.');
+                inputSpecName.focus();
+                return;
+            }
+
+            let params = new URLSearchParams();
+            if (name) params.append('partName', name);
+            if (key) params.append('specKey', key);
+            if (val) params.append('specValue', val);
+
+            queryDesc = `Specs (${[name, key, val].filter(Boolean).join(' / ')})`;
+            url = `/api/parts/specs?${params.toString()}`;
         }
-        queryDesc = `Part #${val.toUpperCase()}`;
-        url = `/api/parts/search?q=${encodeURIComponent(val)}`;
 
         // Simulate API call and loading state UI
         resultsArea.classList.add('has-content');

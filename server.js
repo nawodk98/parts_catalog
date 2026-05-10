@@ -266,6 +266,47 @@ app.get('/api/parts/search', (req, res) => {
     });
 });
 
+// Search Parts by Specification Details
+app.get('/api/parts/specs', (req, res) => {
+    const { partName, specKey, specValue } = req.query;
+
+    let query = `
+        SELECT p.*,
+               (CASE WHEN p.engine_type IS NOT NULL AND p.engine_type != '' THEN 'Engine: ' || p.engine_type ELSE '' END) as engine_fitment,
+               GROUP_CONCAT(DISTINCT COALESCE(UPPER(v.brand) || ' ' || v.model || ' ' || COALESCE(v.submodel, '') || COALESCE(' ' || NULLIF(v.engine_type, ''), ''), NULLIF(TRIM(COALESCE(UPPER(p.vehicle_brand), '') || ' ' || COALESCE(p.vehicle_model, '')), ''))) as vehicle_fits
+        FROM parts p
+        LEFT JOIN part_compatibility pc ON p.id = pc.oem_part_id
+        LEFT JOIN parts gp ON pc.genuine_part_number = gp.part_number
+        LEFT JOIN vehicles v ON p.vehicle_id = v.id OR gp.vehicle_id = v.id
+        WHERE 1=1
+    `;
+    
+    const params = [];
+    if (partName) {
+        query += ` AND (UPPER(p.name) LIKE ? OR UPPER(p.category) LIKE ?)`;
+        const s = '%' + partName.toUpperCase() + '%';
+        params.push(s, s);
+    }
+    
+    if (specKey && specValue) {
+        query += ` AND UPPER(p.specifications) LIKE ? AND UPPER(p.specifications) LIKE ?`;
+        params.push('%' + specKey.toUpperCase() + '%', '%' + specValue.toUpperCase() + '%');
+    } else if (specKey) {
+        query += ` AND UPPER(p.specifications) LIKE ?`;
+        params.push('%' + specKey.toUpperCase() + '%');
+    } else if (specValue) {
+        query += ` AND UPPER(p.specifications) LIKE ?`;
+        params.push('%' + specValue.toUpperCase() + '%');
+    }
+
+    query += ` GROUP BY p.id`;
+
+    db.all(query, params, (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows);
+    });
+});
+
 
 // Download Database Endpoint for Offline Mobile Sync
 app.get('/api/database/download', (req, res) => {
