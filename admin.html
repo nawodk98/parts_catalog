@@ -394,6 +394,10 @@
             <div id="section-manage" class="form-section form-wrapper" style="max-height: 600px; overflow-y: auto;">
                 <h2><i class="fa-solid fa-list-check" style="color: var(--accent-primary);"></i> Manage Parts</h2>
                 <p style="color: var(--secondary-text); margin-bottom: 20px; font-size: 0.95rem;">If you made a mistake entering a part, you can edit or delete it below.</p>
+                <div style="position: relative; margin-bottom: 20px;">
+                    <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: var(--secondary-text);"></i>
+                    <input type="text" id="manage-search" class="premium-input" placeholder="Search by part number, name, or category..." style="width: 100%; padding-left: 45px;" onkeyup="filterManageParts()">
+                </div>
                 <div id="manage-list">Loading parts...</div>
             </div>
 
@@ -475,6 +479,22 @@
         }
 
         // Manage Parts Logic
+        function filterManageParts() {
+            const input = document.getElementById('manage-search');
+            if (!input) return;
+            const filter = input.value.toLowerCase();
+            const rows = document.querySelectorAll('#manage-list table tr');
+            rows.forEach((row, index) => {
+                if (index === 0) return; // Skip header row
+                const text = row.innerText.toLowerCase();
+                if (text.includes(filter)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+
         async function loadManageParts() {
             try {
                 const res = await apiFetch('/api/parts/all');
@@ -500,6 +520,7 @@
                 });
                 html += '</table>';
                 list.innerHTML = html;
+                filterManageParts();
             } catch(e) {
                 document.getElementById('manage-list').innerHTML = "<p>Error loading parts.</p>";
             }

@@ -5,7 +5,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Selectors ---
     const inputPartNumber = document.getElementById('part-number-input');
     const inputSpecName = document.getElementById('spec-name-input');
-    const inputSpecKey = document.getElementById('spec-key-input');
     const inputSpecValue = document.getElementById('spec-value-input');
 
     const searchRadios = document.querySelectorAll('input[name="search-type"]');
@@ -30,9 +29,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Enter') performSearch();
     });
     inputSpecName.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') performSearch();
-    });
-    inputSpecKey.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') performSearch();
     });
     inputSpecValue.addEventListener('keypress', (e) => {
@@ -66,10 +62,9 @@ document.addEventListener('DOMContentLoaded', () => {
             url = `/api/parts/search?q=${encodeURIComponent(val)}`;
         } else if (activeMode === 'specs') {
             const name = inputSpecName.value.trim();
-            const key = inputSpecKey.value.trim();
             const val = inputSpecValue.value.trim();
 
-            if (!name && !key && !val) {
+            if (!name && !val) {
                 alert('Please enter at least one specification criteria.');
                 inputSpecName.focus();
                 return;
@@ -77,10 +72,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             let params = new URLSearchParams();
             if (name) params.append('partName', name);
-            if (key) params.append('specKey', key);
             if (val) params.append('specValue', val);
 
-            queryDesc = `Specs (${[name, key, val].filter(Boolean).join(' / ')})`;
+            queryDesc = `Specs (${[name, val].filter(Boolean).join(' / ')})`;
             url = `/api/parts/specs?${params.toString()}`;
         }
 

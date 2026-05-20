@@ -20,11 +20,8 @@ export default function App() {
 
   // Search State
   const [partQuery, setPartQuery] = useState('');
-  const [vBrand, setVBrand] = useState('');
-  const [vModel, setVModel] = useState('');
-  const [vSubmodel, setVSubmodel] = useState('');
-  const [vEngine, setVEngine] = useState('');
-  const [vCategory, setVCategory] = useState('');
+  const [specName, setSpecName] = useState('');
+  const [specValue, setSpecValue] = useState('');
 
   // Initialize DB on App Start
   useEffect(() => {
@@ -122,7 +119,7 @@ export default function App() {
     setHasSearched(true);
     
     try {
-      const query = `
+      let query = `
           SELECT p.*,
                  (CASE WHEN p.engine_type IS NOT NULL AND p.engine_type != '' THEN 'Engine: ' || p.engine_type ELSE '' END) as engine_fitment,
                  GROUP_CONCAT(DISTINCT COALESCE(UPPER(v.brand) || ' ' || v.model || ' ' || COALESCE(v.submodel, '') || COALESCE(' ' || NULLIF(v.engine_type, ''), ''), NULLIF(TRIM(COALESCE(UPPER(p.vehicle_brand), '') || ' ' || COALESCE(p.vehicle_model, '')), ''))) as vehicle_fits
@@ -130,32 +127,44 @@ export default function App() {
           LEFT JOIN part_compatibility pc ON p.id = pc.oem_part_id
           LEFT JOIN parts gp ON pc.genuine_part_number = gp.part_number
           LEFT JOIN vehicles v ON p.vehicle_id = v.id OR gp.vehicle_id = v.id
-          WHERE UPPER(p.part_number) LIKE ? 
-             OR UPPER(p.name) LIKE ?
-             OR UPPER(p.description) LIKE ?
-             OR UPPER(p.brand) LIKE ?
-             OR UPPER(p.engine_type) LIKE ?
-             OR UPPER(p.vehicle_brand) LIKE ?
-             OR UPPER(p.vehicle_model) LIKE ?
-             OR UPPER(p.specifications) LIKE ?
-             OR UPPER(v.brand) LIKE ?
-             OR UPPER(v.model) LIKE ?
-             OR UPPER(v.submodel) LIKE ?
-             OR UPPER(v.engine_type) LIKE ?
-             OR UPPER(pc.genuine_part_number) LIKE ?
-             OR p.part_number IN (
-                 SELECT pc2.genuine_part_number 
-                 FROM part_compatibility pc2 
-                 JOIN parts p2 ON pc2.oem_part_id = p2.id 
-                 WHERE UPPER(p2.part_number) LIKE ? 
-                    OR UPPER(p2.name) LIKE ?
-                    OR UPPER(p2.description) LIKE ?
-                    OR UPPER(p2.specifications) LIKE ?
-             )
-          GROUP BY p.id
+          WHERE 1=1
       `;
-      const q = `%${partQuery.toUpperCase()}%`;
-      const params = [q, q, q, q, q, q, q, q, q, q, q, q, q, q, q, q, q];
+      
+      const params = [];
+      const words = partQuery.match(/[a-zA-Z0-9\.\-\_]+/g) || [];
+      
+      for (const w of words) {
+          if (w) {
+              query += ` AND (
+                 UPPER(p.part_number) LIKE ? 
+                 OR UPPER(p.name) LIKE ?
+                 OR UPPER(p.description) LIKE ?
+                 OR UPPER(p.brand) LIKE ?
+                 OR UPPER(p.engine_type) LIKE ?
+                 OR UPPER(p.vehicle_brand) LIKE ?
+                 OR UPPER(p.vehicle_model) LIKE ?
+                 OR UPPER(p.specifications) LIKE ?
+                 OR UPPER(v.brand) LIKE ?
+                 OR UPPER(v.model) LIKE ?
+                 OR UPPER(v.submodel) LIKE ?
+                 OR UPPER(v.engine_type) LIKE ?
+                 OR UPPER(pc.genuine_part_number) LIKE ?
+                 OR p.part_number IN (
+                     SELECT pc2.genuine_part_number 
+                     FROM part_compatibility pc2 
+                     JOIN parts p2 ON pc2.oem_part_id = p2.id 
+                     WHERE UPPER(p2.part_number) LIKE ? 
+                        OR UPPER(p2.name) LIKE ?
+                        OR UPPER(p2.description) LIKE ?
+                        OR UPPER(p2.specifications) LIKE ?
+                 )
+              )`;
+              const q = `%${w.toUpperCase()}%`;
+              params.push(q, q, q, q, q, q, q, q, q, q, q, q, q, q, q, q, q);
+          }
+      }
+      
+      query += ` GROUP BY p.id`;
       const res = await executeQuery(query, params);
       setResults(res || []);
     } catch (e) {
@@ -169,9 +178,9 @@ export default function App() {
     setLoading(false);
   };
 
-  const searchVehicle = async () => {
-    if (!vBrand.trim() || !vModel.trim() || !vSubmodel.trim()) {
-      Alert.alert("Required", "Brand, Model, and Submodel are required!");
+  const searchSpecs = async () => {
+    if (!specName.trim() && !specValue.trim()) {
+      Alert.alert("Required", "Please enter a Part Name or Dimensions.");
       return;
     }
     Keyboard.dismiss();
@@ -179,48 +188,6 @@ export default function App() {
     setHasSearched(true);
 
     try {
-      let vQuery = `SELECT id, engine_type FROM vehicles WHERE UPPER(brand) = UPPER(?) AND UPPER(model) = UPPER(?) AND UPPER(submodel) = UPPER(?)`;
-      let vParams = [vBrand, vModel, vSubmodel];
-      
-      if (vEngine.trim()) {
-          vQuery += ` AND UPPER(engine_type) = UPPER(?)`;
-          vParams.push(vEngine.trim());
-      }
-      
-      const vRes = await executeQuery(vQuery, vParams);
-      
-      if (vRes.length === 0 && !vEngine.trim()) {
-          setResults([]);
-          setLoading(false);
-          return;
-      }
-      
-      const conditions = [];
-      let params = [];
-
-      if (vRes.length > 0) {
-          const vehicleId = vRes[0].id;
-          const vehicleEngine = vRes[0].engine_type;
-          conditions.push(`(p.vehicle_id = ?)`);
-          conditions.push(`(pc.genuine_part_number IN (SELECT part_number FROM parts WHERE vehicle_id = ?))`);
-          params.push(vehicleId, vehicleId);
-          if (vehicleEngine) {
-              conditions.push(`(UPPER(p.engine_type) = UPPER(?) AND p.engine_type != '')`);
-              params.push(vehicleEngine);
-          }
-      }
-
-      if (vEngine.trim()) {
-          conditions.push(`(UPPER(p.engine_type) = UPPER(?) AND p.engine_type != '')`);
-          params.push(vEngine.trim());
-      }
-      
-      if (conditions.length === 0) {
-          setResults([]);
-          setLoading(false);
-          return;
-      }
-      
       let query = `
           SELECT p.*,
                  (CASE WHEN p.engine_type IS NOT NULL AND p.engine_type != '' THEN 'Engine: ' || p.engine_type ELSE '' END) as engine_fitment,
@@ -229,13 +196,32 @@ export default function App() {
           LEFT JOIN part_compatibility pc ON p.id = pc.oem_part_id
           LEFT JOIN parts gp ON pc.genuine_part_number = gp.part_number
           LEFT JOIN vehicles v ON p.vehicle_id = v.id OR gp.vehicle_id = v.id
-          WHERE 1=1 AND ( ${conditions.join(' OR ')} )
+          WHERE 1=1
       `;
-
-      if (vCategory && vCategory.toLowerCase() !== 'all') {
-          query += ` AND UPPER(p.category) = UPPER(?)`;
-          params.push(vCategory);
+      
+      const params = [];
+      if (specName.trim()) {
+          const words = specName.match(/[a-zA-Z0-9\.]+/g) || [];
+          for (const w of words) {
+              if (w) {
+                  query += ` AND (UPPER(p.name) LIKE ? OR UPPER(p.category) LIKE ?)`;
+                  const s = '%' + w.toUpperCase() + '%';
+                  params.push(s, s);
+              }
+          }
       }
+      
+      if (specValue.trim()) {
+          const words = specValue.match(/[a-zA-Z0-9\.]+/g) || [];
+          for (const w of words) {
+              if (w) {
+                  query += ` AND (UPPER(p.specifications) LIKE ? OR UPPER(p.description) LIKE ? OR UPPER(p.name) LIKE ? OR UPPER(p.part_number) LIKE ?)`;
+                  const s = '%' + w.toUpperCase() + '%';
+                  params.push(s, s, s, s);
+              }
+          }
+      }
+
       query += ` GROUP BY p.id`;
 
       const pRes = await executeQuery(query, params);
@@ -349,10 +335,10 @@ export default function App() {
             <Text style={[styles.tabText, mode === 'part' && styles.activeTabText]}>Universal Search</Text>
           </TouchableOpacity>
           <TouchableOpacity 
-            style={[styles.tab, mode === 'vehicle' && styles.activeTab]} 
-            onPress={() => { setMode('vehicle'); setResults([]); setHasSearched(false); }}
+            style={[styles.tab, mode === 'specs' && styles.activeTab]} 
+            onPress={() => { setMode('specs'); setResults([]); setHasSearched(false); }}
           >
-            <Text style={[styles.tabText, mode === 'vehicle' && styles.activeTabText]}>By Vehicle</Text>
+            <Text style={[styles.tabText, mode === 'specs' && styles.activeTabText]}>Search by Specs</Text>
           </TouchableOpacity>
         </View>
 
@@ -374,18 +360,13 @@ export default function App() {
           ) : (
             <View>
               <View style={styles.row}>
-                <TextInput style={[styles.input, { flex: 1, marginRight: 5 }]} placeholder="Brand (e.g. Toyota)" placeholderTextColor="#666" value={vBrand} onChangeText={setVBrand} />
-                <TextInput style={[styles.input, { flex: 1, marginLeft: 5 }]} placeholder="Model (e.g. Camry)" placeholderTextColor="#666" value={vModel} onChangeText={setVModel} />
+                <TextInput style={[styles.input, { flex: 1 }]} placeholder="Part Name (e.g. C.V Joint)" placeholderTextColor="#666" value={specName} onChangeText={setSpecName} onSubmitEditing={searchSpecs} />
               </View>
               <View style={styles.row}>
-                <TextInput style={[styles.input, { flex: 1, marginRight: 5 }]} placeholder="Submodel (e.g. LE)" placeholderTextColor="#666" value={vSubmodel} onChangeText={setVSubmodel} />
-                <TextInput style={[styles.input, { flex: 1, marginLeft: 5 }]} placeholder="Engine (e.g. 2KD)" placeholderTextColor="#666" value={vEngine} onChangeText={setVEngine} />
+                <TextInput style={[styles.input, { flex: 1 }]} placeholder="Dimensions (e.g. 25 22 50 or 25*22*50)" placeholderTextColor="#666" value={specValue} onChangeText={setSpecValue} onSubmitEditing={searchSpecs} />
               </View>
-              <View style={styles.row}>
-                <TextInput style={[styles.input, { flex: 1 }]} placeholder="Category (Optional)" placeholderTextColor="#666" value={vCategory} onChangeText={setVCategory} />
-              </View>
-              <TouchableOpacity style={styles.primaryButton} onPress={searchVehicle}>
-                <Text style={styles.buttonText}>Search Vehicle Parts (Offline)</Text>
+              <TouchableOpacity style={styles.primaryButton} onPress={searchSpecs}>
+                <Text style={styles.buttonText}>Search by Specs (Offline)</Text>
               </TouchableOpacity>
             </View>
           )}

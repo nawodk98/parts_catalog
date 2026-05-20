@@ -5,9 +5,8 @@ A modern, high-performance web application for searching and managing automotive
 ## Features
 
 - **Dual Search Modes**:
-  - **Search by Part Number**: Quick lookup using the part number.
-  - **Search by Vehicle**: Advanced filtering through Brand → Model → Submodel → Part.
-- **Dynamic Vehicle Filtering**: Real-time population of model and submodel dropdowns based on vehicle selection.
+  - **Universal Search**: Multi-keyword search across part numbers, descriptions, brands, engines, and vehicles.
+  - **Search by Specs**: Flexible search using varying dimensional formats without needing exact labels.
 - **Premium UI/UX**:
   - Modern "Glassmorphism" design with a premium Amethyst Violet aesthetic.
   - Smooth transitions, micro-interactions, and built-in Full-Screen Kiosk Mode.
@@ -15,6 +14,7 @@ A modern, high-performance web application for searching and managing automotive
 - **Offline Mobile App**:
   - Includes a React Native Android application (`PartsMobile`).
   - One-click sync to download the server's database for 100% offline part searching in the field.
+  - Automatically build the Android `.apk` installer locally using the included `build_apk.bat` script.
 - **Admin Dashboard**:
   - Dedicated interface for adding new vehicles, parts, and managing users.
   - Secure data management and backup utilities.
@@ -125,6 +125,7 @@ parts_catalog/
 ├── script.js               # Frontend logic
 ├── parts.sqlite            # Database file (auto-generated)
 ├── apply_update.bat        # Automated patch updater
+├── build_apk.bat           # Helper script to compile the Android app to an APK
 ├── start_app.bat           # Server launch and Kiosk mode trigger
 ├── PartsMobile/            # React Native Expo Android App source code
 └── package.json            # Project dependencies

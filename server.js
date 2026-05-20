@@ -227,7 +227,7 @@ app.get('/api/vehicles', (req, res) => {
 // Search Parts by Part Number
 app.get('/api/parts/search', (req, res) => {
     const { q } = req.query;
-    const query = `
+    let query = `
         SELECT p.*,
                (CASE WHEN p.engine_type IS NOT NULL AND p.engine_type != '' THEN 'Engine: ' || p.engine_type ELSE '' END) as engine_fitment,
                GROUP_CONCAT(DISTINCT COALESCE(UPPER(v.brand) || ' ' || v.model || ' ' || COALESCE(v.submodel, '') || COALESCE(' ' || NULLIF(v.engine_type, ''), ''), NULLIF(TRIM(COALESCE(UPPER(p.vehicle_brand), '') || ' ' || COALESCE(p.vehicle_model, '')), ''))) as vehicle_fits
@@ -235,32 +235,47 @@ app.get('/api/parts/search', (req, res) => {
         LEFT JOIN part_compatibility pc ON p.id = pc.oem_part_id
         LEFT JOIN parts gp ON pc.genuine_part_number = gp.part_number
         LEFT JOIN vehicles v ON p.vehicle_id = v.id OR gp.vehicle_id = v.id
-        WHERE UPPER(p.part_number) LIKE ? 
-           OR UPPER(p.name) LIKE ?
-           OR UPPER(p.description) LIKE ?
-           OR UPPER(p.brand) LIKE ?
-           OR UPPER(p.engine_type) LIKE ?
-           OR UPPER(p.vehicle_brand) LIKE ?
-           OR UPPER(p.vehicle_model) LIKE ?
-           OR UPPER(p.specifications) LIKE ?
-           OR UPPER(v.brand) LIKE ?
-           OR UPPER(v.model) LIKE ?
-           OR UPPER(v.submodel) LIKE ?
-           OR UPPER(v.engine_type) LIKE ?
-           OR UPPER(pc.genuine_part_number) LIKE ?
-           OR p.part_number IN (
-               SELECT pc2.genuine_part_number 
-               FROM part_compatibility pc2 
-               JOIN parts p2 ON pc2.oem_part_id = p2.id 
-               WHERE UPPER(p2.part_number) LIKE ?
-                  OR UPPER(p2.name) LIKE ?
-                  OR UPPER(p2.description) LIKE ?
-                  OR UPPER(p2.specifications) LIKE ?
-           )
-        GROUP BY p.id
+        WHERE 1=1
     `;
-    const s = `%${q.toUpperCase()}%`;
-    db.all(query, [s, s, s, s, s, s, s, s, s, s, s, s, s, s, s, s, s], (err, rows) => {
+    
+    const params = [];
+    if (q) {
+        const words = q.match(/[a-zA-Z0-9\.\-\_]+/g) || [];
+        for (const w of words) {
+            if (w) {
+                query += ` AND (
+                    UPPER(p.part_number) LIKE ? 
+                    OR UPPER(p.name) LIKE ?
+                    OR UPPER(p.description) LIKE ?
+                    OR UPPER(p.brand) LIKE ?
+                    OR UPPER(p.engine_type) LIKE ?
+                    OR UPPER(p.vehicle_brand) LIKE ?
+                    OR UPPER(p.vehicle_model) LIKE ?
+                    OR UPPER(p.specifications) LIKE ?
+                    OR UPPER(v.brand) LIKE ?
+                    OR UPPER(v.model) LIKE ?
+                    OR UPPER(v.submodel) LIKE ?
+                    OR UPPER(v.engine_type) LIKE ?
+                    OR UPPER(pc.genuine_part_number) LIKE ?
+                    OR p.part_number IN (
+                        SELECT pc2.genuine_part_number 
+                        FROM part_compatibility pc2 
+                        JOIN parts p2 ON pc2.oem_part_id = p2.id 
+                        WHERE UPPER(p2.part_number) LIKE ?
+                           OR UPPER(p2.name) LIKE ?
+                           OR UPPER(p2.description) LIKE ?
+                           OR UPPER(p2.specifications) LIKE ?
+                    )
+                )`;
+                const s = '%' + w.toUpperCase() + '%';
+                params.push(s, s, s, s, s, s, s, s, s, s, s, s, s, s, s, s, s);
+            }
+        }
+    }
+    
+    query += ` GROUP BY p.id`;
+
+    db.all(query, params, (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(rows);
     });
@@ -268,7 +283,7 @@ app.get('/api/parts/search', (req, res) => {
 
 // Search Parts by Specification Details
 app.get('/api/parts/specs', (req, res) => {
-    const { partName, specKey, specValue } = req.query;
+    const { partName, specValue } = req.query;
 
     let query = `
         SELECT p.*,
@@ -283,20 +298,27 @@ app.get('/api/parts/specs', (req, res) => {
     
     const params = [];
     if (partName) {
-        query += ` AND (UPPER(p.name) LIKE ? OR UPPER(p.category) LIKE ?)`;
-        const s = '%' + partName.toUpperCase() + '%';
-        params.push(s, s);
+        const words = partName.match(/[a-zA-Z0-9\.]+/g) || [];
+        for (const w of words) {
+            if (w) {
+                query += ` AND (UPPER(p.name) LIKE ? OR UPPER(p.category) LIKE ?)`;
+                const s = '%' + w.toUpperCase() + '%';
+                params.push(s, s);
+            }
+        }
     }
     
-    if (specKey && specValue) {
-        query += ` AND UPPER(p.specifications) LIKE ? AND UPPER(p.specifications) LIKE ?`;
-        params.push('%' + specKey.toUpperCase() + '%', '%' + specValue.toUpperCase() + '%');
-    } else if (specKey) {
-        query += ` AND UPPER(p.specifications) LIKE ?`;
-        params.push('%' + specKey.toUpperCase() + '%');
-    } else if (specValue) {
-        query += ` AND UPPER(p.specifications) LIKE ?`;
-        params.push('%' + specValue.toUpperCase() + '%');
+    if (specValue) {
+        // Extract all independent alphanumeric words/numbers safely
+        const words = specValue.match(/[a-zA-Z0-9\.]+/g) || [];
+        for (const w of words) {
+            if (w) {
+                // Search across specifications, description, name, and part_number to be incredibly forgiving
+                query += ` AND (UPPER(p.specifications) LIKE ? OR UPPER(p.description) LIKE ? OR UPPER(p.name) LIKE ? OR UPPER(p.part_number) LIKE ?)`;
+                const s = '%' + w.toUpperCase() + '%';
+                params.push(s, s, s, s);
+            }
+        }
     }
 
     query += ` GROUP BY p.id`;
