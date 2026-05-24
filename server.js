@@ -535,110 +535,44 @@ app.use((err, req, res, next) => {
     res.status(500).json({ error: "Internal Server Error" });
 });
 
-const https = require('https');
-
-// Ensure SSL certificates exist or generate them dynamically at startup
-const keyPath = path.join(__dirname, 'key.pem');
-const certPath = path.join(__dirname, 'cert.pem');
-
-(async () => {
-    if (!fs.existsSync(keyPath) || !fs.existsSync(certPath)) {
-        console.log('SSL certificates not found. Generating self-signed certificate with SAN...');
-        try {
-            const selfsigned = require('selfsigned');
-            const attrs = [{ name: 'commonName', value: 'localhost' }];
-            const pems = await selfsigned.generate(attrs, {
-                days: 365,
-                extensions: [{
-                    name: 'subjectAltName',
-                    altNames: [
-                        { type: 2, value: 'localhost' },
-                        { type: 7, ip: '127.0.0.1' }
-                    ]
-                }]
-            });
-            fs.writeFileSync(keyPath, pems.private);
-            fs.writeFileSync(certPath, pems.cert);
-            console.log('Self-signed certificate generated successfully with SAN.');
-        } catch (e) {
-            console.error('Failed to generate self-signed certificate:', e.message);
-        }
-    }
-
-    // Load SSL options
-    let sslOptions;
-    try {
-        sslOptions = {
-            key: fs.readFileSync(keyPath),
-            cert: fs.readFileSync(certPath)
-        };
-    } catch (e) {
-        console.error('Error reading SSL certificates. Falling back to generating fresh ones...', e.message);
-        try {
-            const selfsigned = require('selfsigned');
-            const attrs = [{ name: 'commonName', value: 'localhost' }];
-            const pems = await selfsigned.generate(attrs, {
-                days: 365,
-                extensions: [{
-                    name: 'subjectAltName',
-                    altNames: [
-                        { type: 2, value: 'localhost' },
-                        { type: 7, ip: '127.0.0.1' }
-                    ]
-                }]
-            });
-            fs.writeFileSync(keyPath, pems.private);
-            fs.writeFileSync(certPath, pems.cert);
-            sslOptions = {
-                key: pems.private,
-                cert: pems.cert
-            };
-        } catch (err) {
-            console.error('Failed to generate fallback certificates. App might fail to start:', err.message);
-        }
-    }
-
-    const PORT = process.env.PORT || 0;
-    const server = https.createServer(sslOptions, app);
-
-    server.listen(PORT, '0.0.0.0', () => {
-        const port = server.address().port;
-        const url = `https://localhost:${port}`;
-        const os = require('os');
-        const interfaces = os.networkInterfaces();
-        const addresses = [];
-        for (let k in interfaces) {
-            for (let k2 in interfaces[k]) {
-                let address = interfaces[k][k2];
-                if (address.family === 'IPv4' && !address.internal) {
-                    addresses.push(address.address);
-                }
+const PORT = process.env.PORT || 0;
+const server = app.listen(PORT, '0.0.0.0', () => {
+    const port = server.address().port;
+    const url = `http://localhost:${port}`;
+    const os = require('os');
+    const interfaces = os.networkInterfaces();
+    const addresses = [];
+    for (let k in interfaces) {
+        for (let k2 in interfaces[k]) {
+            let address = interfaces[k][k2];
+            if (address.family === 'IPv4' && !address.internal) {
+                addresses.push(address.address);
             }
         }
+    }
 
-        console.log(`\n=================================================`);
-        console.log(`🚀 API Server is running on Port: ${port} (HTTPS)`);
-        console.log(`💻 Access on this PC:`);
-        console.log(`   -> ${url}`);
-        console.log(`   -> Admin Dashboard: ${url}/admin.html`);
-        
-        if (addresses.length > 0) {
-            console.log(`\n🌐 Access over network (Wi-Fi/LAN):`);
-            console.log(`   (Use these links on your laptop when connected to the same router)`);
-            addresses.forEach(ip => {
-                console.log(`   -> https://${ip}:${port}`);
-                console.log(`   -> Admin Dashboard: https://${ip}:${port}/admin.html`);
-            });
-        }
-        console.log(`=================================================\n`);
-
-        // Automatically open the website in Microsoft Edge kiosk mode (full screen, no window) if on Windows, else default browser
-        const { exec } = require('child_process');
-        const startCmd = process.platform === 'win32' 
-            ? `start msedge --kiosk ${url} || start chrome --kiosk ${url} || start ${url}` 
-            : process.platform === 'darwin' ? `open -a "Google Chrome" --args --kiosk ${url} || open ${url}` : `xdg-open ${url}`;
-        exec(startCmd, (err) => {
-            if (err) console.error('Failed to open browser automatically:', err.message);
+    console.log(`\n=================================================`);
+    console.log(`🚀 API Server is running on Port: ${port}`);
+    console.log(`💻 Access on this PC:`);
+    console.log(`   -> ${url}`);
+    console.log(`   -> Admin Dashboard: ${url}/admin.html`);
+    
+    if (addresses.length > 0) {
+        console.log(`\n🌐 Access over network (Wi-Fi/LAN):`);
+        console.log(`   (Use these links on your laptop when connected to the same router)`);
+        addresses.forEach(ip => {
+            console.log(`   -> http://${ip}:${port}`);
+            console.log(`   -> Admin Dashboard: http://${ip}:${port}/admin.html`);
         });
+    }
+    console.log(`=================================================\n`);
+
+    // Automatically open the website in Microsoft Edge kiosk mode (full screen, no window) if on Windows, else default browser
+    const { exec } = require('child_process');
+    const startCmd = process.platform === 'win32' 
+        ? `start msedge --kiosk ${url} || start chrome --kiosk ${url} || start ${url}` 
+        : process.platform === 'darwin' ? `open -a "Google Chrome" --args --kiosk ${url} || open ${url}` : `xdg-open ${url}`;
+    exec(startCmd, (err) => {
+        if (err) console.error('Failed to open browser automatically:', err.message);
     });
-})();
+});
