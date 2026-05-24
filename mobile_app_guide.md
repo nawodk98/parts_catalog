@@ -230,3 +230,31 @@ npx expo start
 ```
 1. Make sure your Parts Backend Server (`node server.js`) is running on your PC.
 2. In the mobile app UI (at the top), paste your PC's IP address and the dynamic port you got when starting `server.js` (e.g. `http://192.168.1.100:54321`) so the app can fetch your catalog! You can scan the QR code with your phone camera, or run it on a local Android Emulator by pressing `a` on your keyboard.
+
+---
+
+# Parts Catalog Admin App (React Native)
+
+For administrators who need **write access** to manage, add, edit, and delete parts or manage user accounts directly on their mobile devices, a separate Admin application is provided (`PartsMobileAdmin`).
+
+This app uses a custom package identifier (`com.nawodk98.partsmobile.admin`) and distinct theme variables, meaning **both the Employee App and the Admin App can be installed and run on the same Android device simultaneously without conflicts!**
+
+### Step 1: Automatic Setup & Installation
+We have provided an automated setup script that initializes all files and dependencies:
+1. Double-click `setup_admin_app.bat` in the root workspace folder.
+2. The setup script will copy assets from `PartsMobile`, install dependencies (`npm install`), and execute `npx expo prebuild` to configure native Android wrappers.
+
+### Step 2: Compile the Standalone APK
+To compile the Admin application into a standalone installer:
+1. Double-click `build_admin_apk.bat` in the root workspace folder.
+2. Once the compiler completes, you will see a new file `PartsMobileAdmin_Release.apk` at the root of the workspace.
+3. Copy this file to your Android phone to install it.
+
+### Step 3: Running Development Mode
+If you prefer to run the Admin app in Expo development mode on an emulator or Expo Go:
+1. Open a terminal inside the `PartsMobileAdmin` folder.
+2. Execute:
+   ```bash
+   npx expo start
+   ```
+3. Use the interface to connect to your backend PC URL and authenticate using your admin credentials.
