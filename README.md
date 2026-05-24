@@ -79,13 +79,22 @@ You must have the following core software installed on your computer to run the 
 
 ### Running the Server
 
-Start the backend server by double-clicking the `start_app.bat` file, or using the command line:
+Start the backend server using the helper script or standard node execution.
 
+**On Windows:**
+Double-click `start_app.bat` or run:
 ```bash
 node server.js
 ```
 
-*(Note: On Windows, `start_app.bat` will automatically launch Microsoft Edge in Kiosk mode for a full-screen, windowless experience.)*
+**On Linux / macOS:**
+Make the scripts executable and run:
+```bash
+chmod +x *.sh
+./start_app.sh
+```
+
+*(Note: The server will automatically attempt to launch the browser in kiosk mode (full screen, windowless) on Windows, macOS, and Linux desktop environments, falling back gracefully to the system default browser if kiosk configurations are unavailable.)*
 
 ### Accessing the Application
 
@@ -96,7 +105,7 @@ node server.js
 
 Because this application runs as a local web server, any device (phone, laptop, iPad) connected to the same Wi-Fi router can access the application.
 
-1. Start the server on the main installed computer using `start_app.bat` (or `node server.js`).
+1. Start the server on the main installed computer using `start_app.bat` / `./start_app.sh` (or `node server.js`).
 2. Look at the black terminal window. It will automatically detect and display your network IP, e.g., `http://192.168.1.15:3000`.
 3. Type that exact URL into the web browser of any other device on your network to instantly access the parts catalog remotely.
 
@@ -112,7 +121,7 @@ Your entire database is stored seamlessly in a single file (`parts.sqlite`). You
 You can update the system without reinstalling Node or losing your database.
 1. Download the new `update.zip` file provided by the developer.
 2. Place `update.zip` inside your `parts_catalog` folder.
-3. Run `apply_update.bat`.
+3. Run `apply_update.bat` (Windows) or `./apply_update.sh` (Linux/macOS).
 4. The script will extract the files, install any new dependencies, and safely preserve your `parts.sqlite` database!
 
 ## Project Structure
@@ -125,11 +134,16 @@ parts_catalog/
 ├── style.css               # Global styles
 ├── script.js               # Frontend logic
 ├── parts.sqlite            # Database file (auto-generated)
-├── apply_update.bat        # Automated patch updater
-├── setup_admin_app.bat     # Helper script to initialize and prebuild the Admin mobile app
-├── build_apk.bat           # Helper script to compile the Employee app to an APK
-├── build_admin_apk.bat     # Helper script to compile the Admin app to an APK
-├── start_app.bat           # Server launch and Kiosk mode trigger
+├── apply_update.bat        # Automated patch updater (Windows)
+├── apply_update.sh         # Automated patch updater (Linux/macOS)
+├── setup_admin_app.bat     # Helper script to initialize the Admin mobile app (Windows)
+├── setup_admin_app.sh      # Helper script to initialize the Admin mobile app (Linux/macOS)
+├── build_apk.bat           # Helper script to compile the Employee app to an APK (Windows)
+├── build_apk.sh            # Helper script to compile the Employee app to an APK (Linux/macOS)
+├── build_admin_apk.bat     # Helper script to compile the Admin app to an APK (Windows)
+├── build_admin_apk.sh      # Helper script to compile the Admin app to an APK (Linux/macOS)
+├── start_app.bat           # Server launch and Kiosk mode trigger (Windows)
+├── start_app.sh            # Server launch and Kiosk mode trigger (Linux/macOS)
 ├── PartsMobile/            # React Native Expo Employee Android App source code
 ├── PartsMobileAdmin/       # React Native Expo Admin Android App source code
 └── package.json            # Project dependencies
