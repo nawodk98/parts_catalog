@@ -22,60 +22,69 @@ function initDB() {
         console.error('Error opening database', err.message);
     } else {
         console.log('Connected to SQLite database.');
-        // Initialize tables
-        db.run(`CREATE TABLE IF NOT EXISTS vehicles (
-             id INTEGER PRIMARY KEY AUTOINCREMENT,
-             brand TEXT,
-             model TEXT,
-             submodel TEXT,
-             engine_type TEXT
-         )`, () => {
-             db.run("ALTER TABLE vehicles ADD COLUMN engine_type TEXT", () => {});
-         });
+        // Initialize tables sequentially and build indices
+        db.serialize(() => {
+            db.run(`CREATE TABLE IF NOT EXISTS vehicles (
+                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                 brand TEXT,
+                 model TEXT,
+                 submodel TEXT,
+                 engine_type TEXT
+             )`);
+            db.run("ALTER TABLE vehicles ADD COLUMN engine_type TEXT", () => {});
 
-        db.run(`CREATE TABLE IF NOT EXISTS parts (
-             id INTEGER PRIMARY KEY AUTOINCREMENT,
-             part_number TEXT UNIQUE,
-             name TEXT,
-             description TEXT,
-             vehicle_id INTEGER,
-             engine_type TEXT,
-             category TEXT,
-             part_type TEXT DEFAULT 'Genuine',
-             brand TEXT,
-             specifications TEXT,
-             FOREIGN KEY (vehicle_id) REFERENCES vehicles (id)
-         )`, () => {
-             // Silently upgrade existing DB schema
-             db.run("ALTER TABLE parts ADD COLUMN part_type TEXT DEFAULT 'Genuine'", () => {});
-             db.run("ALTER TABLE parts ADD COLUMN brand TEXT", () => {});
-             db.run("ALTER TABLE parts ADD COLUMN description TEXT", () => {});
-             db.run("ALTER TABLE parts ADD COLUMN engine_type TEXT", () => {});
-             db.run("ALTER TABLE parts ADD COLUMN specifications TEXT", () => {});
-             db.run("ALTER TABLE parts ADD COLUMN vehicle_brand TEXT", () => {});
-             db.run("ALTER TABLE parts ADD COLUMN vehicle_model TEXT", () => {});
-         });
+            db.run(`CREATE TABLE IF NOT EXISTS parts (
+                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                 part_number TEXT UNIQUE,
+                 name TEXT,
+                 description TEXT,
+                 vehicle_id INTEGER,
+                 engine_type TEXT,
+                 category TEXT,
+                 part_type TEXT DEFAULT 'Genuine',
+                 brand TEXT,
+                 specifications TEXT,
+                 FOREIGN KEY (vehicle_id) REFERENCES vehicles (id)
+             )`);
+            // Silently upgrade existing DB schema
+            db.run("ALTER TABLE parts ADD COLUMN part_type TEXT DEFAULT 'Genuine'", () => {});
+            db.run("ALTER TABLE parts ADD COLUMN brand TEXT", () => {});
+            db.run("ALTER TABLE parts ADD COLUMN description TEXT", () => {});
+            db.run("ALTER TABLE parts ADD COLUMN engine_type TEXT", () => {});
+            db.run("ALTER TABLE parts ADD COLUMN specifications TEXT", () => {});
+            db.run("ALTER TABLE parts ADD COLUMN vehicle_brand TEXT", () => {});
+            db.run("ALTER TABLE parts ADD COLUMN vehicle_model TEXT", () => {});
 
-        db.run(`CREATE TABLE IF NOT EXISTS part_compatibility (
-             oem_part_id INTEGER,
-             genuine_part_number TEXT,
-             FOREIGN KEY (oem_part_id) REFERENCES parts (id),
-             UNIQUE(oem_part_id, genuine_part_number)
-         )`);
+            db.run(`CREATE TABLE IF NOT EXISTS part_compatibility (
+                 oem_part_id INTEGER,
+                 genuine_part_number TEXT,
+                 FOREIGN KEY (oem_part_id) REFERENCES parts (id),
+                 UNIQUE(oem_part_id, genuine_part_number)
+             )`);
 
-        db.run(`CREATE TABLE IF NOT EXISTS users (
-             id INTEGER PRIMARY KEY AUTOINCREMENT,
-             username TEXT UNIQUE,
-             password TEXT,
-             token TEXT
-         )`, () => {
-             db.get("SELECT COUNT(*) AS count FROM users", (err, row) => {
-                 if (row && row.count === 0) {
-                     const hash = hashPassword('admin');
-                     db.run("INSERT INTO users (username, password) VALUES ('admin', ?)", [hash]);
-                 }
-             });
-         });
+            db.run(`CREATE TABLE IF NOT EXISTS users (
+                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                 username TEXT UNIQUE,
+                 password TEXT,
+                 token TEXT
+             )`);
+
+            db.get("SELECT COUNT(*) AS count FROM users", (err, row) => {
+                if (row && row.count === 0) {
+                    const hash = hashPassword('admin');
+                    db.run("INSERT INTO users (username, password) VALUES ('admin', ?)", [hash]);
+                }
+            });
+
+            // Create high-performance indices for fast searches and joins
+            db.run("CREATE INDEX IF NOT EXISTS idx_parts_name ON parts(name)");
+            db.run("CREATE INDEX IF NOT EXISTS idx_parts_brand ON parts(brand)");
+            db.run("CREATE INDEX IF NOT EXISTS idx_parts_category ON parts(category)");
+            db.run("CREATE INDEX IF NOT EXISTS idx_parts_vehicle_id ON parts(vehicle_id)");
+            db.run("CREATE INDEX IF NOT EXISTS idx_vehicles_brand ON vehicles(brand)");
+            db.run("CREATE INDEX IF NOT EXISTS idx_vehicles_model ON vehicles(model)");
+            db.run("CREATE INDEX IF NOT EXISTS idx_part_compatibility_genuine ON part_compatibility(genuine_part_number)");
+        });
     }
     });
 }
@@ -234,7 +243,15 @@ app.get('/api/parts/search', (req, res) => {
         FROM parts p
         LEFT JOIN part_compatibility pc ON p.id = pc.oem_part_id
         LEFT JOIN parts gp ON pc.genuine_part_number = gp.part_number
-        LEFT JOIN vehicles v ON p.vehicle_id = v.id OR gp.vehicle_id = v.id
+        LEFT JOIN (
+            SELECT id as p_id, vehicle_id FROM parts WHERE vehicle_id IS NOT NULL
+            UNION
+            SELECT pc.oem_part_id as p_id, gp.vehicle_id 
+            FROM part_compatibility pc
+            JOIN parts gp ON pc.genuine_part_number = gp.part_number
+            WHERE gp.vehicle_id IS NOT NULL
+        ) pv ON p.id = pv.p_id
+        LEFT JOIN vehicles v ON pv.vehicle_id = v.id
         WHERE 1=1
     `;
     
@@ -292,7 +309,15 @@ app.get('/api/parts/specs', (req, res) => {
         FROM parts p
         LEFT JOIN part_compatibility pc ON p.id = pc.oem_part_id
         LEFT JOIN parts gp ON pc.genuine_part_number = gp.part_number
-        LEFT JOIN vehicles v ON p.vehicle_id = v.id OR gp.vehicle_id = v.id
+        LEFT JOIN (
+            SELECT id as p_id, vehicle_id FROM parts WHERE vehicle_id IS NOT NULL
+            UNION
+            SELECT pc.oem_part_id as p_id, gp.vehicle_id 
+            FROM part_compatibility pc
+            JOIN parts gp ON pc.genuine_part_number = gp.part_number
+            WHERE gp.vehicle_id IS NOT NULL
+        ) pv ON p.id = pv.p_id
+        LEFT JOIN vehicles v ON pv.vehicle_id = v.id
         WHERE 1=1
     `;
     

@@ -85,9 +85,6 @@ document.addEventListener('DOMContentLoaded', () => {
         loadingState.classList.remove('hidden');
 
         try {
-            // Fake slight network delay for premium feel
-            await new Promise(r => setTimeout(r, 600));
-
             const res = await fetch(url);
             const data = await res.json();
 
@@ -130,7 +127,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 html += `
-                    <div class="result-item" style="animation-delay: ${index * 0.1}s">
+                    <div class="result-item" style="animation-delay: ${Math.min(index * 0.04, 0.8)}s">
                         <div class="result-info">
                             <h3 style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
                                 <span>${item.name} <span style="color: var(--secondary-text); font-size: 0.8em; font-weight: normal;">(${item.part_number})</span></span>
@@ -163,7 +160,7 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => {
                 item.style.opacity = '1';
                 item.style.transform = 'translateY(0)';
-            }, index * 80);
+            }, Math.min(index * 40, 800));
         });
     }
 
