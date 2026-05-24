@@ -16,7 +16,7 @@ call npm install
 
 echo.
 echo [3/3] Generating native Android wrapper (package: com.nawodk98.partsmobile.admin)...
-call npx expo prebuild --platform android --no-interactive
+call npx expo prebuild --platform android
 
 if %ERRORLEVEL% neq 0 (
     echo.
