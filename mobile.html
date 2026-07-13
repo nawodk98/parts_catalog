@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mahesh Catalog Mobile</title>
+    <!-- G-Fonts and Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- PWA Manifest & Meta Tags -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0a2540">
+    
+    <!-- QR Scanner Library CDN -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+
+    <style>
+        :root {
+            --bg-color: #f8fafc;
+            --primary-color: #0a2540;
+            --accent-color: #3b82f6;
+            --accent-glow: #93c5fd;
+            --card-bg: #ffffff;
+            --card-border: rgba(10, 37, 64, 0.08);
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --green: #2ed573;
+            --red: #ff4757;
+            --border-radius: 12px;
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #0b111e;
+            --primary-color: #3b82f6;
+            --accent-color: #60a5fa;
+            --card-bg: #152238;
+            --card-border: rgba(255, 255, 255, 0.08);
+            --text-primary: #ffffff;
+            --text-secondary: #94a3b8;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Outfit', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        /* --- Header Styles --- */
+        header {
+            background: var(--primary-color);
+            color: #ffffff;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        header h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.8rem;
+            background: rgba(255,255,255,0.1);
+            padding: 4px 10px;
+            border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.15);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--red);
+            box-shadow: 0 0 8px var(--red);
+        }
+
+        .status-dot.online {
+            background: var(--green);
+            box-shadow: 0 0 8px var(--green);
+        }
+
+        /* --- Screens Structure --- */
+        .screen {
+            display: none;
+            flex: 1;
+            flex-direction: column;
+            padding: 20px;
+        }
+
+        .screen.active {
+            display: flex;
+        }
+
+        /* --- 1. Pairing Screen --- */
+        .pairing-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: var(--border-radius);
+            padding: 30px 20px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+            max-width: 400px;
+            margin: auto;
+        }
+
+        .pairing-icon {
+            font-size: 3rem;
+            color: var(--accent-color);
+            margin-bottom: 20px;
+        }
+
+        .pairing-card h2 {
+            margin-bottom: 10px;
+            font-size: 1.4rem;
+        }
+
+        .pairing-card p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            line-height: 1.5;
+            margin-bottom: 25px;
+        }
+
+        .btn-action {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            background: linear-gradient(135deg, #0a2540, #3b82f6);
+            color: white;
+            border: none;
+            padding: 15px 25px;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: 30px;
+            cursor: pointer;
+            width: 100%;
+            margin-bottom: 15px;
+            box-shadow: 0 6px 15px rgba(59, 130, 246, 0.25);
+            transition: transform 0.2s;
+        }
+
+        .btn-action:active {
+            transform: scale(0.98);
+        }
+
+        .input-text {
+            width: 100%;
+            padding: 12px 18px;
+            border: 1px solid var(--card-border);
+            background: var(--bg-color);
+            color: var(--text-primary);
+            border-radius: 8px;
+            outline: none;
+            font-size: 1rem;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        /* --- 2. Catalog / Main Screen --- */
+        .search-wrapper {
+            position: sticky;
+            top: 60px;
+            z-index: 90;
+            background: var(--bg-color);
+            padding: 10px 0;
+            display: flex;
+            gap: 10px;
+        }
+
+        .search-box {
+            flex: 1;
+            position: relative;
+        }
+
+        .search-box i {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 12px 15px 12px 42px;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: var(--border-radius);
+            color: var(--text-primary);
+            font-size: 1rem;
+            outline: none;
+        }
+
+        .btn-scan-trigger {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            width: 46px;
+            height: 46px;
+            border-radius: var(--border-radius);
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        .sync-banner {
+            display: none;
+            background: rgba(46, 213, 115, 0.15);
+            border: 1px solid var(--green);
+            color: var(--text-primary);
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            margin-bottom: 15px;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .parts-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 10px;
+        }
+
+        .part-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: var(--border-radius);
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+        }
+
+        .part-card h3 {
+            font-size: 1.05rem;
+            font-weight: 600;
+        }
+
+        .part-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .badge-brand {
+            background: rgba(10, 37, 64, 0.05);
+            color: var(--text-secondary);
+            padding: 2px 8px;
+            border-radius: 20px;
+        }
+
+        .price-badge {
+            font-family: monospace;
+            font-weight: 700;
+            color: var(--accent-color);
+            background: var(--accent-glow);
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+        }
+
+        /* --- 3. QR Camera Scanner Overlay --- */
+        #scanner-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #000;
+            z-index: 2000;
+            flex-direction: column;
+        }
+
+        #scanner-reader {
+            flex: 1;
+            width: 100%;
+        }
+
+        .scanner-header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 20px;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+            color: white;
+            z-index: 2005;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .btn-cancel-scan {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            backdrop-filter: blur(5px);
+        }
+
+        /* --- 4. Beautiful Form Editor Modal --- */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+            justify-content: center;
+            align-items: flex-end; /* Slides up from bottom on mobile */
+        }
+
+        .modal-content {
+            background: var(--card-bg);
+            width: 100%;
+            max-height: 85vh;
+            border-radius: 20px 20px 0 0;
+            padding: 25px;
+            overflow-y: auto;
+            animation: slideUp 0.3s cubic-bezier(0.1, 0.9, 0.2, 1) forwards;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--card-border);
+            padding-bottom: 15px;
+        }
+
+        .modal-header h2 {
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+
+        .btn-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--card-border);
+            background: var(--bg-color);
+            color: var(--text-primary);
+            border-radius: 8px;
+            outline: none;
+            font-size: 1rem;
+        }
+
+        .calc-preview {
+            background: var(--accent-glow);
+            color: var(--text-primary);
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            margin-top: 10px;
+            border: 1px dashed var(--accent-color);
+            font-weight: 500;
+        }
+
+        /* Floating Scan FAB */
+        .fab-scan {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: linear-gradient(135deg, #0a2540, #3b82f6);
+            color: white;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            box-shadow: 0 10px 25px rgba(59, 130, 246, 0.4);
+            z-index: 95;
+            cursor: pointer;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <header>
+        <h1><i class="fa-solid fa-gears"></i> Mahesh Spares</h1>
+        <div class="status-indicator">
+            <div id="connection-dot" class="status-dot"></div>
+            <span id="connection-text">Offline Mode</span>
+        </div>
+    </header>
+
+    <!-- 1. Pairing Screen -->
+    <div id="screen-pairing" class="screen active">
+        <div class="pairing-card">
+            <i class="fa-solid fa-qrcode pairing-icon"></i>
+            <h2>Pair with Desktop Database</h2>
+            <p>Connect your phone to the same network and enter the desktop server URL, or scan the Pairing QR code from the Admin Dashboard.</p>
+            
+            <button class="btn-action" onclick="startScanner('pairing')">
+                <i class="fa-solid fa-camera"></i> Scan Pairing QR Code
+            </button>
+            
+            <div style="margin: 15px 0; color: var(--text-secondary); font-size: 0.9rem;">or enter connection URL manually:</div>
+            
+            <input type="text" id="manual-url-input" class="input-text" placeholder="e.g. http://192.168.1.100:51716">
+            
+            <button class="btn-action" onclick="saveManualPairing()">
+                Connect Manual
+            </button>
+        </div>
+    </div>
+
+    <!-- 2. Main Catalog / Offline Search Screen -->
+    <div id="screen-main" class="screen">
+        <!-- Sync queue alert banner -->
+        <div id="sync-banner" class="sync-banner">
+            <span id="sync-banner-text">You have 0 pending offline updates.</span>
+            <button onclick="triggerSync()" style="background:var(--primary-color); border:none; color:white; padding:4px 8px; border-radius:4px; font-weight:bold; cursor:pointer;">Sync Now</button>
+        </div>
+
+        <div class="search-wrapper">
+            <div class="search-box">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="mobile-search-input" placeholder="Search by SKU, Name, Fitment..." oninput="filterParts()">
+            </div>
+            <button class="btn-scan-trigger" onclick="startScanner('search')" title="Scan Part QR Code">
+                <i class="fa-solid fa-qrcode"></i>
+            </button>
+        </div>
+
+        <!-- Parts listing -->
+        <div id="mobile-parts-list" class="parts-list">
+            <!-- Dynamically populated -->
+        </div>
+
+        <!-- Floating action button to quickly scan to load part -->
+        <button class="fab-scan" onclick="startScanner('search')" title="Quick Scan Box QR">
+            <i class="fa-solid fa-camera"></i>
+        </button>
+    </div>
+
+    <!-- 3. QR Camera Scanner Overlay Container -->
+    <div id="scanner-overlay">
+        <div class="scanner-header">
+            <span>Point camera at QR Code</span>
+            <button class="btn-cancel-scan" onclick="stopScanner()">Cancel</button>
+        </div>
+        <div id="scanner-reader"></div>
+        <div id="scanner-fallback-ui" style="position: absolute; bottom: 30px; left: 0; width: 100%; display: flex; justify-content: center; z-index: 2005;">
+            <button onclick="triggerFileScanner()" class="btn-action" style="max-width: 250px; background: #ff4757; box-shadow: 0 4px 12px rgba(255, 71, 87, 0.3); margin-bottom: 0;">
+                <i class="fa-solid fa-camera"></i> Take Photo of QR
+            </button>
+            <input type="file" id="qr-file-input" accept="image/*" capture="environment" style="display: none;" onchange="handleFileScan(event)">
+        </div>
+    </div>
+
+    <!-- 4. Glassmorphic Bottom Sheet Form Editor Modal -->
+    <div id="edit-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="edit-part-title">Edit Pricing & Inventory</h2>
+                <button class="btn-close" onclick="closeEditModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div style="font-size:0.9rem; color:var(--text-secondary); margin-bottom:15px; border-left:3px solid var(--accent-color); padding-left:10px;">
+                    <span id="edit-part-sku" style="font-weight:bold; display:block; color:var(--text-primary);">SKU: -</span>
+                    <span id="edit-part-category">Category: -</span>
+                </div>
+
+                <form id="part-edit-form" onsubmit="savePartData(event)">
+                    <div class="form-group">
+                        <label for="edit-pricing-type">Pricing Structure</label>
+                        <select id="edit-pricing-type" onchange="togglePricingTypeFields()">
+                            <option value="standard">Standard (Direct Cost & Selling)</option>
+                            <option value="imported">Imported (Foreign Cost * Exchange Rate)</option>
+                            <option value="discount">Discount (List Cost * Discount %)</option>
+                        </select>
+                    </div>
+
+                    <!-- Standard Pricing Form Fields -->
+                    <div id="group-standard" class="pricing-fields">
+                        <div class="form-group">
+                            <label for="edit-cost-price">Cost Cipher Code</label>
+                            <input type="text" id="edit-cost-price" placeholder="e.g. ENI" oninput="validateCipherInput(this)">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-selling-price">Selling Cipher Code</label>
+                            <input type="text" id="edit-selling-price" placeholder="e.g. OY" oninput="validateCipherInput(this)">
+                        </div>
+                    </div>
+
+                    <!-- Imported Pricing Form Fields -->
+                    <div id="group-imported" class="pricing-fields" style="display:none;">
+                        <div class="form-group">
+                            <label for="edit-foreign-price">Foreign Cost Code</label>
+                            <input type="text" id="edit-foreign-price" placeholder="e.g. ES" oninput="validateCipherInput(this); updateRealtimePreviews();">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-exchange-rate">Exchange Rate Code</label>
+                            <input type="text" id="edit-exchange-rate" placeholder="e.g. OI" oninput="validateCipherInput(this); updateRealtimePreviews();">
+                        </div>
+                        <div id="preview-imported-cost" class="calc-preview">Calculated Cost Preview: -</div>
+                    </div>
+
+                    <!-- Discount Pricing Form Fields -->
+                    <div id="group-discount" class="pricing-fields" style="display:none;">
+                        <div class="form-group">
+                            <label for="edit-discount-cost">List Cost Code</label>
+                            <input type="text" id="edit-discount-cost" placeholder="e.g. EBIY" oninput="validateCipherInput(this); updateRealtimePreviews();">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-discount">Discount Code (%)</label>
+                            <input type="text" id="edit-discount" placeholder="e.g. NI" oninput="validateCipherInput(this); updateRealtimePreviews();">
+                        </div>
+                        <div id="preview-discount-cost" class="calc-preview">Calculated Net Cost Preview: -</div>
+                    </div>
+
+                    <div class="form-group" style="margin-top:20px;">
+                        <button type="submit" class="btn-action" style="margin-bottom:0;">
+                            <i class="fa-solid fa-floppy-disk"></i> Save Pricing Data
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Core App Logic Script -->
+    <script src="mobile.js"></script>
+
+    <!-- Register PWA Service Worker -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(reg => console.log('Service Worker Registered Successfully:', reg.scope))
+                    .catch(err => console.error('Service Worker Registration Failed:', err));
+            });
+        }
+    </script>
+</body>
+</html>

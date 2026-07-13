@@ -1,0 +1,18 @@
+{
+  "name": "Mahesh Parts Mobile",
+  "short_name": "Mahesh Catalog",
+  "description": "Offline-capable mobile catalog scanner and editor for Mahesh Motor Spares",
+  "start_url": "mobile.html",
+  "display": "standalone",
+  "background_color": "#0b111e",
+  "theme_color": "#0a2540",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3067/3067260.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

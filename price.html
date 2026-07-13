@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Price Manager - Mahesh Motor Spares</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    
+    <script>
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+    </script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Floating Particles Background Effect -->
+        <div class="background-effects">
+            <div class="blur-blob blob-1"></div>
+            <div class="blur-blob blob-2"></div>
+        </div>
+
+        <header class="main-header">
+            <div class="header-content" style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <i class="fa-solid fa-tags logo-icon" style="color: var(--accent-glow-secondary);"></i>
+                    <h1>Price <span>Manager</span></h1>
+                </div>
+                <div style="display: flex; gap: 15px; align-items: center;">
+                    <button class="theme-toggle" id="theme-toggle" title="Toggle Light/Dark Mode" style="position: static;">
+                        <i class="fa-solid fa-moon"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <main class="main-content" style="padding: 0; background: transparent; border: none; box-shadow: none; backdrop-filter: none;">
+            
+            <!-- Login Form -->
+            <div id="section-login" class="form-section active form-wrapper" style="max-width: 500px; margin: 40px auto 0;">
+                <h2><i class="fa-solid fa-lock" style="color: var(--accent-primary);"></i> Price Manager Authentication</h2>
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label>Username</label>
+                        <input type="text" id="login-username" class="premium-input" required autofocus placeholder="Enter admin username">
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="login-password" class="premium-input" required placeholder="Enter password">
+                    </div>
+                    <button type="submit" class="btn-primary" style="width: 100%; justify-content: center; margin-top: 10px;">Secure Login <i class="fa-solid fa-arrow-right-to-bracket"></i></button>
+                    <p id="login-error" class="error-msg"><i class="fa-solid fa-circle-exclamation"></i> Invalid credentials.</p>
+                </form>
+            </div>
+
+            <!-- Price Management System -->
+            <div id="section-prices" class="form-section form-wrapper" style="display: none; padding: 25px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 15px; border-bottom: 1px solid var(--card-border); padding-bottom: 15px;">
+                    <div>
+                        <h2><i class="fa-solid fa-tags" style="color: var(--accent-glow-secondary);"></i> Mahesh Pricing Controller</h2>
+                        <p style="color: var(--secondary-text); font-size: 0.95rem; margin-top: 5px;">Configure secret code prices using the <strong>ENGLISHBOY</strong> cipher.</p>
+                    </div>
+                    <div style="display: flex; gap: 15px; align-items: center;">
+                        <a href="/admin.html" class="btn-primary" style="background: var(--glass-bg); border: 1px solid var(--card-border); color: var(--primary-text); text-decoration: none; padding: 10px 20px; font-size: 0.95rem; font-weight: 500; display:flex; align-items:center; gap:8px;"><i class="fa-solid fa-gears"></i> Admin Dashboard</a>
+                        <button class="admin-btn" onclick="logout()" style="color: #ff4757; background: rgba(255, 71, 87, 0.05); border-color: transparent; padding: 10px 20px;"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 380px 1fr; gap: 30px; align-items: start;">
+                    <!-- Left Column: Search & Part List -->
+                    <div style="background: var(--glass-bg); border: 1px solid var(--card-border); padding: 20px; border-radius: var(--border-radius); backdrop-filter: blur(10px);">
+                        <div style="position: relative; display: flex; align-items: center; margin-bottom: 20px;">
+                            <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 15px; color: var(--secondary-text);"></i>
+                            <input type="text" id="price-search" class="premium-input" placeholder="Search by Part # or Name..." style="padding-left: 45px; width: 100%;" oninput="filterPrices()">
+                        </div>
+                        <h4 style="color: var(--secondary-text); margin-bottom: 10px; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 1px;">Part Catalog</h4>
+                        <div id="prices-sidebar-list" style="max-height: 550px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 5px;">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Editing Form -->
+                    <div id="pricing-editor-panel" style="background: var(--glass-bg); border: 1px solid var(--card-border); padding: 30px; border-radius: var(--border-radius); backdrop-filter: blur(10px); display: none;">
+                        <h3 id="edit-part-title" style="color: var(--primary-text); font-weight: 600; margin-bottom: 5px;">Select an Item</h3>
+                        <p id="edit-part-sku" style="font-family: monospace; color: var(--accent-glow-secondary); font-size: 1.1rem; margin-bottom: 25px;"></p>
+
+                        <form id="priceForm" onsubmit="savePrice(event)">
+                            <div class="form-group" style="margin-bottom: 25px;">
+                                <label style="font-weight: 600;">Pricing Structure</label>
+                                <select id="pricing-type" class="premium-input" style="width: 100%;" onchange="togglePricingModel()">
+                                    <option value="standard">Standard (Direct Cost & Selling)</option>
+                                    <option value="imported">Imported (Price & Exchange Rate)</option>
+                                    <option value="discount">Discount (Cost & Discount Margin)</option>
+                                </select>
+                            </div>
+
+                            <!-- Standard Fields -->
+                            <div id="model-standard" class="model-fields">
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                                    <div class="form-group">
+                                        <label>Cost Cipher Code</label>
+                                        <input type="text" id="std-cost" class="premium-input cipher-input" placeholder="e.g. ONLY">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Selling Cipher Code</label>
+                                        <input type="text" id="std-selling" class="premium-input cipher-input" placeholder="e.g. EEIXY">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Imported Fields -->
+                            <div id="model-imported" class="model-fields" style="display: none;">
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                                    <div class="form-group">
+                                        <label>Foreign Cost Cipher Code</label>
+                                        <input type="text" id="imp-foreign" class="premium-input cipher-input" placeholder="e.g. ES">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Exchange Rate Cipher Code</label>
+                                        <input type="text" id="imp-rate" class="premium-input cipher-input" placeholder="e.g. OI">
+                                    </div>
+                                </div>
+                                <div class="calculated-preview-box" id="imported-preview">
+                                    <span>Calculated Net Cost Code Preview:</span>
+                                    <strong id="imported-cost-code">-</strong>
+                                    <small id="imported-cost-numeric"></small>
+                                </div>
+                            </div>
+
+                            <!-- Discount Fields -->
+                            <div id="model-discount" class="model-fields" style="display: none;">
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                                    <div class="form-group">
+                                        <label>List Cost Cipher Code</label>
+                                        <input type="text" id="disc-list" class="premium-input cipher-input" placeholder="e.g. EBIY">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Discount Cipher Code (%)</label>
+                                        <input type="text" id="disc-rate" class="premium-input cipher-input" placeholder="e.g. NI">
+                                    </div>
+                                </div>
+                                <div class="calculated-preview-box" id="discount-preview">
+                                    <span>Calculated Net Cost Code Preview:</span>
+                                    <strong id="discount-cost-code">-</strong>
+                                    <small id="discount-cost-numeric"></small>
+                                </div>
+                            </div>
+
+                            <button type="submit" id="save-pricing-btn" class="btn-primary" style="width: 100%; justify-content: center; margin-top: 30px; padding: 15px;">
+                                <i class="fa-solid fa-floppy-disk"></i> Save Pricing Data
+                            </button>
+                            <p id="save-success" style="color: #2ed573; text-align: center; margin-top: 15px; display: none; font-weight: 500;"><i class="fa-solid fa-circle-check"></i> Pricing details updated successfully!</p>
+                            <p id="save-error" style="color: #ff4757; text-align: center; margin-top: 15px; display: none; font-weight: 500;"><i class="fa-solid fa-circle-xmark"></i> Failed to save pricing data.</p>
+                        </form>
+                    </div>
+
+                    <!-- Placeholder panel when no part is selected -->
+                    <div id="editor-placeholder" style="background: var(--glass-bg); border: 1px solid var(--card-border); padding: 50px 20px; border-radius: var(--border-radius); text-align: center; backdrop-filter: blur(10px); color: var(--secondary-text);">
+                        <i class="fa-solid fa-tags" style="font-size: 3rem; color: var(--card-border); margin-bottom: 15px; display: block;"></i>
+                        <p style="font-size: 1.1rem;">Select a part from the left catalog panel to view and modify pricing codes.</p>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Pricing Calculations Styles -->
+    <style>
+        .calculated-preview-box {
+            background: rgba(59, 130, 246, 0.08);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .calculated-preview-box span {
+            color: var(--secondary-text);
+            font-size: 0.95rem;
+        }
+        .calculated-preview-box strong {
+            color: var(--accent-glow-secondary);
+            font-size: 1.3rem;
+            font-family: monospace;
+        }
+        .calculated-preview-box small {
+            color: var(--secondary-text);
+            font-size: 0.85rem;
+        }
+        .sidebar-item {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--card-border);
+            padding: 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .sidebar-item:hover {
+            background: rgba(59, 130, 246, 0.05);
+            border-color: var(--accent-glow-secondary);
+        }
+        .sidebar-item.active {
+            background: rgba(59, 130, 246, 0.1);
+            border-color: var(--accent-glow-secondary);
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.15);
+        }
+        .sidebar-item h5 {
+            color: var(--primary-text);
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        .sidebar-item p {
+            font-family: monospace;
+            color: var(--accent-glow-secondary);
+            font-size: 0.85rem;
+        }
+        .sidebar-item small {
+            display: block;
+            color: var(--secondary-text);
+            font-size: 0.8rem;
+            margin-top: 6px;
+        }
+    </style>
+
+    <script>
+        // Cipher Translation Utilities (Mahesh Secret Code: ENGLISHBOY + X)
+        const CIPHER_MAP = {
+            'E': '1', 'N': '2', 'G': '3', 'L': '4', 'I': '5', 'S': '6', 'H': '7', 'B': '8', 'O': '9', 'Y': '0', 'X': '0'
+        };
+        const REVERSE_MAP = {
+            '1': 'E', '2': 'N', '3': 'G', '4': 'L', '5': 'I', '6': 'S', '7': 'H', '8': 'B', '9': 'O'
+        };
+
+        function encodePrice(price) {
+            if (price === null || price === undefined || price === '') return '';
+            const priceStr = Math.round(Number(price)).toString();
+            if (isNaN(priceStr)) return '';
+
+            const digits = priceStr.split('');
+            const encodedDigits = [];
+            let zeroCount = 0;
+
+            for (let i = digits.length - 1; i >= 0; i--) {
+                const digit = digits[i];
+                if (digit === '0') {
+                    zeroCount++;
+                    encodedDigits.unshift(zeroCount % 2 === 1 ? 'Y' : 'X');
+                } else if (REVERSE_MAP[digit]) {
+                    encodedDigits.unshift(REVERSE_MAP[digit]);
+                } else {
+                    encodedDigits.unshift(digit);
+                }
+            }
+            return encodedDigits.join('');
+        }
+
+        function decodePrice(cipher) {
+            if (!cipher) return null;
+            const cleaned = cipher.toUpperCase().trim();
+            const decodedDigits = [];
+
+            for (let i = 0; i < cleaned.length; i++) {
+                const char = cleaned[i];
+                if (CIPHER_MAP[char] !== undefined) {
+                    decodedDigits.push(CIPHER_MAP[char]);
+                } else if (!isNaN(Number(char)) || char === '.') {
+                    decodedDigits.push(char);
+                }
+            }
+            const decodedNum = Number(decodedDigits.join(''));
+            return isNaN(decodedNum) ? null : decodedNum;
+        }
+
+        // Global State variables
+        let partsList = [];
+        let selectedPartId = null;
+
+        async function apiFetch(url, options = {}) {
+            if (!options.headers) options.headers = {};
+            const token = localStorage.getItem('adminToken');
+            if (token) {
+                options.headers['Authorization'] = 'Bearer ' + token;
+            }
+            const res = await fetch(url, options);
+            if (res.status === 401 && url !== '/api/login' && url !== '/api/users/me') {
+                logout();
+            }
+            return res;
+        }
+
+        // Authentication logic
+        document.addEventListener('DOMContentLoaded', async () => {
+            const token = localStorage.getItem('adminToken');
+            if (token) {
+                try {
+                    const res = await apiFetch('/api/users/me');
+                    if (res.ok) {
+                        showPriceSystem();
+                    } else {
+                        logout();
+                    }
+                } catch(e) {
+                    logout();
+                }
+            }
+
+            // Bind input filters to enforce ENGLISHBOY + X characters only
+            document.querySelectorAll('.cipher-input').forEach(input => {
+                input.addEventListener('input', (e) => {
+                    const cursor = input.selectionStart;
+                    let val = input.value.toUpperCase();
+                    // Keep letters inside key cipher, numbers/dots for direct entry
+                    val = val.replace(/[^ENGLISHOBYX0-9\.]/g, '');
+                    input.value = val;
+                    input.setSelectionRange(cursor, cursor);
+                    calculatePreviews();
+                });
+            });
+        });
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('login-username').value;
+            const password = document.getElementById('login-password').value;
+
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    localStorage.setItem('adminToken', data.token);
+                    document.getElementById('login-error').style.display = 'none';
+                    showPriceSystem();
+                } else {
+                    document.getElementById('login-error').style.display = 'block';
+                }
+            } catch(err) {
+                document.getElementById('login-error').style.display = 'block';
+            }
+        });
+
+        function showPriceSystem() {
+            document.getElementById('section-login').style.display = 'none';
+            document.getElementById('section-prices').style.display = 'block';
+            loadPrices();
+        }
+
+        function logout() {
+            localStorage.removeItem('adminToken');
+            document.getElementById('section-login').style.display = 'block';
+            document.getElementById('section-prices').style.display = 'none';
+            document.getElementById('login-username').value = '';
+            document.getElementById('login-password').value = '';
+            selectedPartId = null;
+            document.getElementById('pricing-editor-panel').style.display = 'none';
+            document.getElementById('editor-placeholder').style.display = 'block';
+        }
+
+        // Sidebar List and Selection
+        async function loadPrices() {
+            try {
+                const res = await apiFetch('/api/parts/all');
+                partsList = await res.json();
+                renderSidebar();
+            } catch(e) {
+                console.error("Failed to load parts", e);
+            }
+        }
+
+        function renderSidebar() {
+            const listEl = document.getElementById('prices-sidebar-list');
+            listEl.innerHTML = '';
+            if (partsList.length === 0) {
+                listEl.innerHTML = "<p style='color: var(--secondary-text); padding: 10px;'>No parts cataloged.</p>";
+                return;
+            }
+
+            partsList.forEach(p => {
+                const activeClass = selectedPartId === p.id ? 'active' : '';
+                let displayPrice = '';
+                if (p.pricing_type === 'standard') {
+                    displayPrice = `${p.cost_price || ''} / ${p.selling_price || ''}`;
+                } else if (p.pricing_type === 'imported') {
+                    displayPrice = `${p.foreign_price || ''} / ${p.exchange_rate || ''}`;
+                } else if (p.pricing_type === 'discount') {
+                    displayPrice = `${p.cost_price || ''} / ${p.discount || ''}`;
+                } else {
+                    displayPrice = p.price ? encodePrice(p.price) : 'No Price';
+                }
+                
+                const itemDiv = document.createElement('div');
+                itemDiv.className = `sidebar-item ${activeClass}`;
+                itemDiv.onclick = () => selectPart(p.id);
+                itemDiv.innerHTML = `
+                    <h5>${p.name}</h5>
+                    <p>${p.part_number}</p>
+                    <small>Category: ${p.category} | Price Code: <strong style="color:var(--accent-primary);">${displayPrice}</strong></small>
+                `;
+                listEl.appendChild(itemDiv);
+            });
+        }
+
+        function filterPrices() {
+            const query = document.getElementById('price-search').value.toLowerCase();
+            const items = document.querySelectorAll('.sidebar-item');
+            items.forEach((item, index) => {
+                const p = partsList[index];
+                const matches = p.name.toLowerCase().includes(query) || p.part_number.toLowerCase().includes(query);
+                item.style.display = matches ? 'block' : 'none';
+            });
+        }
+
+        function selectPart(id) {
+            selectedPartId = id;
+            const part = partsList.find(p => p.id === id);
+            if (!part) return;
+
+            // Highlight in sidebar
+            document.querySelectorAll('.sidebar-item').forEach((item, idx) => {
+                if (partsList[idx].id === id) {
+                    item.classList.add('active');
+                } else {
+                    item.classList.remove('active');
+                }
+            });
+
+            // Populate Editor
+            document.getElementById('editor-placeholder').style.display = 'none';
+            document.getElementById('pricing-editor-panel').style.display = 'block';
+            document.getElementById('edit-part-title').textContent = part.name;
+            document.getElementById('edit-part-sku').textContent = `SKU / Part Number: ${part.part_number}`;
+
+            // Reset inputs
+            document.getElementById('pricing-type').value = part.pricing_type || 'standard';
+            
+            document.getElementById('std-cost').value = part.cost_price || '';
+            document.getElementById('std-selling').value = part.selling_price || '';
+
+            document.getElementById('imp-foreign').value = part.foreign_price || '';
+            document.getElementById('imp-rate').value = part.exchange_rate || '';
+
+            document.getElementById('disc-list').value = part.cost_price || '';
+            document.getElementById('disc-rate').value = part.discount || '';
+
+            togglePricingModel();
+            calculatePreviews();
+
+            document.getElementById('save-success').style.display = 'none';
+            document.getElementById('save-error').style.display = 'none';
+        }
+
+        function togglePricingModel() {
+            const type = document.getElementById('pricing-type').value;
+            document.querySelectorAll('.model-fields').forEach(el => el.style.display = 'none');
+            
+            if (type === 'standard') {
+                document.getElementById('model-standard').style.display = 'block';
+            } else if (type === 'imported') {
+                document.getElementById('model-imported').style.display = 'block';
+            } else if (type === 'discount') {
+                document.getElementById('model-discount').style.display = 'block';
+            }
+            calculatePreviews();
+        }
+
+        // Live calculation previews
+        function calculatePreviews() {
+            const type = document.getElementById('pricing-type').value;
+
+            if (type === 'imported') {
+                const foreignCipher = document.getElementById('imp-foreign').value;
+                const rateCipher = document.getElementById('imp-rate').value;
+                
+                const foreignVal = decodePrice(foreignCipher);
+                const rateVal = decodePrice(rateCipher);
+
+                if (foreignVal && rateVal) {
+                    const result = Math.round(foreignVal * rateVal);
+                    const resultCipher = encodePrice(result);
+                    document.getElementById('imported-cost-code').textContent = resultCipher;
+                    document.getElementById('imported-cost-numeric').textContent = `(${foreignVal} * ${rateVal} = ${result})`;
+                } else {
+                    document.getElementById('imported-cost-code').textContent = '-';
+                    document.getElementById('imported-cost-numeric').textContent = '';
+                }
+            } else if (type === 'discount') {
+                const listCipher = document.getElementById('disc-list').value;
+                const rateCipher = document.getElementById('disc-rate').value;
+                
+                const listVal = decodePrice(listCipher);
+                const rateVal = decodePrice(rateCipher); // e.g. 25 for 25%
+
+                if (listVal && rateVal) {
+                    const result = Math.round(listVal - (listVal * (rateVal / 100)));
+                    const resultCipher = encodePrice(result);
+                    document.getElementById('discount-cost-code').textContent = resultCipher;
+                    document.getElementById('discount-cost-numeric').textContent = `(${listVal} - ${rateVal}% = ${result})`;
+                } else {
+                    document.getElementById('discount-cost-code').textContent = '-';
+                    document.getElementById('discount-cost-numeric').textContent = '';
+                }
+            }
+        }
+
+        // Form Submit Handler
+        async function savePrice(e) {
+            e.preventDefault();
+            if (!selectedPartId) return;
+
+            const pricing_type = document.getElementById('pricing-type').value;
+            let cost_price = '';
+            let selling_price = '';
+            let discount = '';
+            let foreign_price = '';
+            let exchange_rate = '';
+
+            if (pricing_type === 'standard') {
+                cost_price = document.getElementById('std-cost').value;
+                selling_price = document.getElementById('std-selling').value;
+            } else if (pricing_type === 'imported') {
+                foreign_price = document.getElementById('imp-foreign').value;
+                exchange_rate = document.getElementById('imp-rate').value;
+                // Cost price is dynamically calculated
+                const fVal = decodePrice(foreign_price);
+                const rVal = decodePrice(exchange_rate);
+                if (fVal && rVal) {
+                    cost_price = encodePrice(fVal * rVal);
+                }
+            } else if (pricing_type === 'discount') {
+                cost_price = document.getElementById('disc-list').value;
+                discount = document.getElementById('disc-rate').value;
+            }
+
+            const btn = document.getElementById('save-pricing-btn');
+            const originalText = btn.innerHTML;
+
+            try {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+                
+                const payload = {
+                    pricing_type,
+                    cost_price,
+                    selling_price,
+                    discount,
+                    foreign_price,
+                    exchange_rate
+                };
+
+                const res = await apiFetch(`/api/parts/${selectedPartId}/price`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    document.getElementById('save-success').style.display = 'block';
+                    document.getElementById('save-error').style.display = 'none';
+                    
+                    // Update local lists
+                    const part = partsList.find(p => p.id === selectedPartId);
+                    if (part) {
+                        part.pricing_type = pricing_type;
+                        part.cost_price = cost_price;
+                        part.selling_price = selling_price;
+                        part.discount = discount;
+                        part.foreign_price = foreign_price;
+                        part.exchange_rate = exchange_rate;
+                    }
+                    renderSidebar();
+
+                    setTimeout(() => {
+                        document.getElementById('save-success').style.display = 'none';
+                    }, 2500);
+                } else {
+                    document.getElementById('save-error').style.display = 'block';
+                    document.getElementById('save-success').style.display = 'none';
+                }
+            } catch(e) {
+                document.getElementById('save-error').style.display = 'block';
+                document.getElementById('save-success').style.display = 'none';
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        }
+
+        // Theme Toggle Logic
+        const themeToggle = document.getElementById('theme-toggle');
+        const themeIcon = themeToggle.querySelector('i');
+        
+        if (document.documentElement.getAttribute('data-theme') === 'light') {
+            themeIcon.classList.remove('fa-moon');
+            themeIcon.classList.add('fa-sun');
+        }
+
+        themeToggle.addEventListener('click', () => {
+            let theme = document.documentElement.getAttribute('data-theme');
+            theme = theme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', theme);
+            localStorage.setItem('theme', theme);
+            
+            if (theme === 'light') {
+                themeIcon.classList.remove('fa-moon');
+                themeIcon.classList.add('fa-sun');
+            } else {
+                themeIcon.classList.remove('fa-sun');
+                themeIcon.classList.add('fa-moon');
+            }
+        });
+    </script>
+</body>
+</html>

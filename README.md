@@ -11,11 +11,6 @@ A modern, high-performance web application for searching and managing automotive
   - Modern "Glassmorphism" design with a premium Amethyst Violet aesthetic.
   - Smooth transitions, micro-interactions, and built-in Full-Screen Kiosk Mode.
   - Responsive layout for desktop and mobile devices.
-- **Dual Offline & Online Mobile Apps**:
-  - **Employee App (`PartsMobile`)**: Offline part search tool. Syncs database in one click to allow 100% offline searches in the field.
-  - **Admin App (`PartsMobileAdmin`)**: Full-featured admin portal. Authenticates via JWT token, allows real-time catalog search, editing/deleting parts, creating specs with pills, and user account management.
-  - Separate app packages allow both apps to coexist on the same Android device!
-  - Double-click setup & compile batch scripts are provided for both applications.
 - **Admin Dashboard**:
   - Dedicated interface for adding new vehicles, parts, and managing users.
   - Secure data management and backup utilities.
@@ -136,16 +131,8 @@ parts_catalog/
 ├── parts.sqlite            # Database file (auto-generated)
 ├── apply_update.bat        # Automated patch updater (Windows)
 ├── apply_update.sh         # Automated patch updater (Linux/macOS)
-├── setup_admin_app.bat     # Helper script to initialize the Admin mobile app (Windows)
-├── setup_admin_app.sh      # Helper script to initialize the Admin mobile app (Linux/macOS)
-├── build_apk.bat           # Helper script to compile the Employee app to an APK (Windows)
-├── build_apk.sh            # Helper script to compile the Employee app to an APK (Linux/macOS)
-├── build_admin_apk.bat     # Helper script to compile the Admin app to an APK (Windows)
-├── build_admin_apk.sh      # Helper script to compile the Admin app to an APK (Linux/macOS)
 ├── start_app.bat           # Server launch and Kiosk mode trigger (Windows)
 ├── start_app.sh            # Server launch and Kiosk mode trigger (Linux/macOS)
-├── PartsMobile/            # React Native Expo Employee Android App source code
-├── PartsMobileAdmin/       # React Native Expo Admin Android App source code
 └── package.json            # Project dependencies
 ```
 

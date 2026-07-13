@@ -11,6 +11,33 @@ function hashPassword(password) {
     return crypto.createHash('sha256').update(password).digest('hex');
 }
 
+const ENCRYPTION_KEY = 'my_super_secret_key_for_pricing_'; // 32 characters
+const IV_LENGTH = 16;
+
+function encrypt(text) {
+    if (text === null || text === undefined || text === '') return null;
+    let iv = crypto.randomBytes(IV_LENGTH);
+    let cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);
+    let encrypted = cipher.update(text.toString());
+    encrypted = Buffer.concat([encrypted, cipher.final()]);
+    return iv.toString('hex') + ':' + encrypted.toString('hex');
+}
+
+function decrypt(text) {
+    if (text === null || text === undefined || text === '') return null;
+    try {
+        let textParts = text.split(':');
+        let iv = Buffer.from(textParts.shift(), 'hex');
+        let encryptedText = Buffer.from(textParts.join(':'), 'hex');
+        let decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);
+        let decrypted = decipher.update(encryptedText);
+        decrypted = Buffer.concat([decrypted, decipher.final()]);
+        return decrypted.toString();
+    } catch (e) {
+        return text;
+    }
+}
+
 const app = express();
 // Connect to SQLite Database
 const dbPath = process.env.DB_PATH || path.join(__dirname, 'parts.sqlite');
@@ -44,6 +71,13 @@ function initDB() {
                  part_type TEXT DEFAULT 'Genuine',
                  brand TEXT,
                  specifications TEXT,
+                 price REAL,
+                 pricing_type TEXT DEFAULT 'standard',
+                 cost_price TEXT,
+                 selling_price TEXT,
+                 discount TEXT,
+                 foreign_price TEXT,
+                 exchange_rate TEXT,
                  FOREIGN KEY (vehicle_id) REFERENCES vehicles (id)
              )`);
             // Silently upgrade existing DB schema
@@ -53,13 +87,33 @@ function initDB() {
             db.run("ALTER TABLE parts ADD COLUMN engine_type TEXT", () => {});
             db.run("ALTER TABLE parts ADD COLUMN specifications TEXT", () => {});
             db.run("ALTER TABLE parts ADD COLUMN vehicle_brand TEXT", () => {});
+            db.run("ALTER TABLE parts ADD COLUMN price REAL", () => {});
             db.run("ALTER TABLE parts ADD COLUMN vehicle_model TEXT", () => {});
+            db.run("ALTER TABLE parts ADD COLUMN pricing_type TEXT DEFAULT 'standard'", () => {});
+            db.run("ALTER TABLE parts ADD COLUMN cost_price TEXT", () => {});
+            db.run("ALTER TABLE parts ADD COLUMN selling_price TEXT", () => {});
+            db.run("ALTER TABLE parts ADD COLUMN discount TEXT", () => {});
+            db.run("ALTER TABLE parts ADD COLUMN foreign_price TEXT", () => {});
+            db.run("ALTER TABLE parts ADD COLUMN exchange_rate TEXT", () => {});
 
             db.run(`CREATE TABLE IF NOT EXISTS part_compatibility (
                  oem_part_id INTEGER,
                  genuine_part_number TEXT,
                  FOREIGN KEY (oem_part_id) REFERENCES parts (id),
                  UNIQUE(oem_part_id, genuine_part_number)
+             )`);
+
+            db.run(`CREATE TABLE IF NOT EXISTS price_history (
+                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                 part_id INTEGER,
+                 changed_at TEXT,
+                 pricing_type TEXT,
+                 cost_price TEXT,
+                 selling_price TEXT,
+                 discount TEXT,
+                 foreign_price TEXT,
+                 exchange_rate TEXT,
+                 FOREIGN KEY (part_id) REFERENCES parts (id)
              )`);
 
             db.run(`CREATE TABLE IF NOT EXISTS users (
@@ -173,14 +227,14 @@ app.post('/api/vehicles', authenticate, (req, res) => {
 });
 
 app.post('/api/parts', authenticate, (req, res) => {
-    const { part_type, brand, part_number, name, description, category, vehicle_id, engine_type, compatible_genuine_numbers, specifications, vehicle_brand, vehicle_model } = req.body;
+    const { part_type, brand, part_number, name, description, category, vehicle_id, engine_type, compatible_genuine_numbers, specifications, vehicle_brand, vehicle_model, price } = req.body;
     
     // Allow saving part even if vehicle_id is missing, as long as it has an engine_type
     const vId = part_type === 'OEM' ? null : (vehicle_id ? vehicle_id : null);
 
-    db.run(`INSERT INTO parts (part_type, brand, part_number, name, description, category, vehicle_id, engine_type, specifications, vehicle_brand, vehicle_model) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [part_type || 'Genuine', brand || null, part_number, name, description, category, vId, engine_type || null, specifications ? JSON.stringify(specifications) : null, vehicle_brand || null, vehicle_model || null],
+    db.run(`INSERT INTO parts (part_type, brand, part_number, name, description, category, vehicle_id, engine_type, specifications, vehicle_brand, vehicle_model, price) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [part_type || 'Genuine', brand || null, part_number, name, description, category, vId, engine_type || null, specifications ? JSON.stringify(specifications) : null, vehicle_brand || null, vehicle_model || null, encrypt(price)],
         function (err) {
             if (err) return res.status(400).json({ error: err.message });
             const pId = this.lastID;
@@ -294,7 +348,16 @@ app.get('/api/parts/search', (req, res) => {
 
     db.all(query, params, (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
-        res.json(rows);
+        const decrypted = rows.map(r => ({
+            ...r,
+            price: decrypt(r.price),
+            cost_price: decrypt(r.cost_price),
+            selling_price: decrypt(r.selling_price),
+            discount: decrypt(r.discount),
+            foreign_price: decrypt(r.foreign_price),
+            exchange_rate: decrypt(r.exchange_rate)
+        }));
+        res.json(decrypted);
     });
 });
 
@@ -350,7 +413,16 @@ app.get('/api/parts/specs', (req, res) => {
 
     db.all(query, params, (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
-        res.json(rows);
+        const decrypted = rows.map(r => ({
+            ...r,
+            price: decrypt(r.price),
+            cost_price: decrypt(r.cost_price),
+            selling_price: decrypt(r.selling_price),
+            discount: decrypt(r.discount),
+            foreign_price: decrypt(r.foreign_price),
+            exchange_rate: decrypt(r.exchange_rate)
+        }));
+        res.json(decrypted);
     });
 });
 
@@ -389,9 +461,18 @@ app.post('/api/database/restore', authenticate, express.raw({ type: 'application
 
 // Get recent parts
 app.get('/api/parts/all', (req, res) => {
-    db.all(`SELECT id, part_number, name, category, part_type, engine_type FROM parts ORDER BY id DESC LIMIT 100`, [], (err, rows) => {
+    db.all(`SELECT id, part_number, name, category, part_type, engine_type, price, pricing_type, cost_price, selling_price, discount, foreign_price, exchange_rate FROM parts ORDER BY id DESC LIMIT 100`, [], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
-        res.json(rows);
+        const decrypted = rows.map(r => ({
+            ...r,
+            price: decrypt(r.price),
+            cost_price: decrypt(r.cost_price),
+            selling_price: decrypt(r.selling_price),
+            discount: decrypt(r.discount),
+            foreign_price: decrypt(r.foreign_price),
+            exchange_rate: decrypt(r.exchange_rate)
+        }));
+        res.json(decrypted);
     });
 });
 
@@ -400,6 +481,13 @@ app.get('/api/parts/:id', (req, res) => {
     db.get(`SELECT * FROM parts WHERE id = ?`, [req.params.id], (err, row) => {
         if (err) return res.status(500).json({ error: err.message });
         if (!row) return res.status(404).json({ error: 'Not found' });
+        
+        row.price = decrypt(row.price);
+        row.cost_price = decrypt(row.cost_price);
+        row.selling_price = decrypt(row.selling_price);
+        row.discount = decrypt(row.discount);
+        row.foreign_price = decrypt(row.foreign_price);
+        row.exchange_rate = decrypt(row.exchange_rate);
         
         if (row.part_type === 'OEM') {
             db.all(`SELECT genuine_part_number FROM part_compatibility WHERE oem_part_id = ?`, [row.id], (err2, cmp) => {
@@ -415,12 +503,12 @@ app.get('/api/parts/:id', (req, res) => {
 // Update a part
 app.put('/api/parts/:id', authenticate, (req, res) => {
     const pId = req.params.id;
-    const { part_type, brand, part_number, name, description, category, vehicle_id, engine_type, compatible_genuine_numbers, specifications, vehicle_brand, vehicle_model } = req.body;
+    const { part_type, brand, part_number, name, description, category, vehicle_id, engine_type, compatible_genuine_numbers, specifications, vehicle_brand, vehicle_model, price } = req.body;
     
     const vId = part_type === 'OEM' ? null : (vehicle_id ? vehicle_id : null);
 
-    db.run(`UPDATE parts SET part_type=?, brand=?, part_number=?, name=?, description=?, category=?, vehicle_id=?, engine_type=?, specifications=?, vehicle_brand=?, vehicle_model=? WHERE id=?`,
-        [part_type || 'Genuine', brand || null, part_number, name, description, category, vId, engine_type || null, specifications ? JSON.stringify(specifications) : null, vehicle_brand || null, vehicle_model || null, pId],
+    db.run(`UPDATE parts SET part_type=?, brand=?, part_number=?, name=?, description=?, category=?, vehicle_id=?, engine_type=?, specifications=?, vehicle_brand=?, vehicle_model=?, price=? WHERE id=?`,
+        [part_type || 'Genuine', brand || null, part_number, name, description, category, vId, engine_type || null, specifications ? JSON.stringify(specifications) : null, vehicle_brand || null, vehicle_model || null, encrypt(price), pId],
         function (err) {
             if (err) return res.status(400).json({ error: err.message });
             
@@ -440,6 +528,54 @@ app.put('/api/parts/:id', authenticate, (req, res) => {
             });
         }
     );
+});
+
+// Update only price of a part (Mahesh pricing cipher system components)
+app.patch('/api/parts/:id/price', authenticate, (req, res) => {
+    const pId = req.params.id;
+    const { pricing_type, cost_price, selling_price, discount, foreign_price, exchange_rate } = req.body;
+    db.run(`UPDATE parts SET pricing_type = ?, cost_price = ?, selling_price = ?, discount = ?, foreign_price = ?, exchange_rate = ? WHERE id = ?`, 
+        [pricing_type || 'standard', encrypt(cost_price), encrypt(selling_price), encrypt(discount), encrypt(foreign_price), encrypt(exchange_rate), pId], 
+        function (err) {
+            if (err) return res.status(400).json({ error: err.message });
+            
+            // Record history event with timestamp formatted as 'YYYY-MM-DD, HH:MM:SS AM/PM'
+            const now = new Date();
+            const dateStr = now.toISOString().split('T')[0];
+            const timeStr = now.toLocaleTimeString('en-US', { hour12: true });
+            const changed_at = `${dateStr}, ${timeStr}`;
+
+            db.run(`INSERT INTO price_history (part_id, changed_at, pricing_type, cost_price, selling_price, discount, foreign_price, exchange_rate) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                [pId, changed_at, pricing_type || 'standard', encrypt(cost_price), encrypt(selling_price), encrypt(discount), encrypt(foreign_price), encrypt(exchange_rate)],
+                (err2) => {
+                    if (err2) console.error("Failed to insert price history:", err2.message);
+                }
+            );
+
+            res.json({ success: true });
+        }
+    );
+});
+
+// Get price history for a part
+app.get('/api/parts/:id/price-history', (req, res) => {
+    const pId = req.params.id;
+    db.all(`SELECT * FROM price_history WHERE part_id = ? ORDER BY id DESC`, [pId], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        const decrypted = rows.map(r => ({
+            id: r.id,
+            part_id: r.part_id,
+            changed_at: r.changed_at,
+            pricing_type: r.pricing_type,
+            cost_price: decrypt(r.cost_price),
+            selling_price: decrypt(r.selling_price),
+            discount: decrypt(r.discount),
+            foreign_price: decrypt(r.foreign_price),
+            exchange_rate: decrypt(r.exchange_rate)
+        }));
+        res.json(decrypted);
+    });
 });
 
 // Delete a part
@@ -521,6 +657,48 @@ app.delete('/api/users/:id', authenticate, (req, res) => {
     db.run("DELETE FROM users WHERE id = ?", [id], function(err) {
         if (err) return res.status(500).json({ error: err.message });
         res.json({ success: true });
+    });
+});
+
+app.get('/api/server-info', (req, res) => {
+    const os = require('os');
+    const interfaces = os.networkInterfaces();
+    const addresses = [];
+    const port = server.address().port;
+    
+    // Sort interfaces to prioritize physical connections (Wi-Fi, Ethernet)
+    const sortedKeys = Object.keys(interfaces).sort((a, b) => {
+        const aLower = a.toLowerCase();
+        const bLower = b.toLowerCase();
+        const aIsVirtual = aLower.includes('virtualbox') || aLower.includes('vbox') || aLower.includes('wsl') || aLower.includes('host-only') || aLower.includes('vmware') || aLower.includes('virtual');
+        const bIsVirtual = bLower.includes('virtualbox') || bLower.includes('vbox') || bLower.includes('wsl') || bLower.includes('host-only') || bLower.includes('vmware') || bLower.includes('virtual');
+        if (aIsVirtual && !bIsVirtual) return 1;
+        if (!aIsVirtual && bIsVirtual) return -1;
+        return 0;
+    });
+
+    const physicalAddrs = [];
+    const virtualAddrs = [];
+    
+    for (let k of sortedKeys) {
+        for (let k2 in interfaces[k]) {
+            let address = interfaces[k][k2];
+            if (address.family === 'IPv4' && !address.internal) {
+                if (address.address.startsWith('192.168.56.')) {
+                    virtualAddrs.push(address.address);
+                } else {
+                    physicalAddrs.push(address.address);
+                }
+            }
+        }
+    }
+    
+    const finalAddresses = physicalAddrs.concat(virtualAddrs);
+    
+    res.json({
+        port,
+        ips: finalAddresses,
+        primaryUrl: finalAddresses.length > 0 ? `http://${finalAddresses[0]}:${port}` : `http://localhost:${port}`
     });
 });
 

@@ -1,26 +1,26 @@
 /* style.css - Premium Parts Catalog Styling */
 
 :root {
-    /* Color Palette - Premium Amethyst / Violet Aesthetic */
-    --bg-color: #050505;
-    --bg-image: url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop');
+    /* Color Palette - Premium Navy Blue & White Theme */
+    --bg-color: #f8fafc;
+    --bg-image: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
     
-    --card-bg: rgba(15, 10, 20, 0.55);
-    --card-border: rgba(255, 255, 255, 0.12);
+    --card-bg: #ffffff;
+    --card-border: rgba(10, 37, 64, 0.08);
 
-    --primary-text: #ffffff;
-    --secondary-text: #a89bb8;
+    --primary-text: #0f172a;
+    --secondary-text: #475569;
 
-    --accent-glow: #e0aaff;
-    --accent-glow-secondary: #9d4edd;
-    --accent-primary: #7b2cbf;
+    --accent-glow: #93c5fd;
+    --accent-glow-secondary: #3b82f6;
+    --accent-primary: #0a2540;
 
-    --input-bg: rgba(0, 0, 0, 0.4);
-    --input-focus: rgba(157, 78, 221, 0.3);
-    --input-border: rgba(255, 255, 255, 0.15);
+    --input-bg: #ffffff;
+    --input-focus: rgba(10, 37, 64, 0.12);
+    --input-border: rgba(10, 37, 64, 0.15);
 
-    --shadow-glow: rgba(157, 78, 221, 0.3);
-    --shadow-glow-strong: rgba(157, 78, 221, 0.5);
+    --shadow-glow: rgba(10, 37, 64, 0.1);
+    --shadow-glow-strong: rgba(10, 37, 64, 0.18);
 
     --transition-speed: 0.3s;
     --border-radius-lg: 16px;
@@ -29,37 +29,37 @@
 
     --font-main: 'Outfit', sans-serif;
     
+    --glass-bg: rgba(10, 37, 64, 0.03);
+    --glass-bg-hover: rgba(10, 37, 64, 0.06);
+    --btn-faint-bg: rgba(10, 37, 64, 0.05);
+    --btn-faint-text: #0a2540;
+}
+
+[data-theme="dark"] {
+    --bg-color: #0b111e;
+    --bg-image: linear-gradient(135deg, #0b111e 0%, #060a12 100%);
+    
+    --card-bg: rgba(15, 23, 42, 0.7);
+    --card-border: rgba(255, 255, 255, 0.08);
+
+    --primary-text: #ffffff;
+    --secondary-text: #94a3b8;
+
+    --accent-glow: #60a5fa;
+    --accent-glow-secondary: #2563eb;
+    --accent-primary: #3b82f6;
+
+    --input-bg: rgba(0, 0, 0, 0.3);
+    --input-focus: rgba(59, 130, 246, 0.25);
+    --input-border: rgba(255, 255, 255, 0.1);
+
+    --shadow-glow: rgba(59, 130, 246, 0.2);
+    --shadow-glow-strong: rgba(59, 130, 246, 0.4);
+
     --glass-bg: rgba(255, 255, 255, 0.05);
     --glass-bg-hover: rgba(255, 255, 255, 0.08);
     --btn-faint-bg: rgba(255, 255, 255, 0.1);
     --btn-faint-text: #ffffff;
-}
-
-[data-theme="light"] {
-    --bg-color: #e5e0e8;
-    --bg-image: url('https://images.unsplash.com/photo-1557682250-33bd709cbe85?q=80&w=2529&auto=format&fit=crop');
-    
-    --card-bg: rgba(255, 255, 255, 0.45);
-    --card-border: rgba(255, 255, 255, 0.6);
-
-    --primary-text: #2d1b3d;
-    --secondary-text: #5c4d6b;
-
-    --accent-glow: #9d4edd;
-    --accent-glow-secondary: #5a189a;
-    --accent-primary: #7b2cbf;
-
-    --input-bg: rgba(255, 255, 255, 0.5);
-    --input-focus: rgba(123, 44, 191, 0.2);
-    --input-border: rgba(255, 255, 255, 0.5);
-
-    --shadow-glow: rgba(123, 44, 191, 0.2);
-    --shadow-glow-strong: rgba(123, 44, 191, 0.4);
-
-    --glass-bg: rgba(255, 255, 255, 0.4);
-    --glass-bg-hover: rgba(255, 255, 255, 0.5);
-    --btn-faint-bg: rgba(123, 44, 191, 0.1);
-    --btn-faint-text: #7b2cbf;
 }
 
 /* Global Reset */
@@ -612,4 +612,86 @@ select option {
 
 .admin-link i {
     font-size: 1.1rem;
+}
+
+/* --- Glassmorphic Modal Styles --- */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(10, 25, 40, 0.45);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    animation: modalFadeIn var(--transition-speed) ease forwards;
+}
+
+.modal-content {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--border-radius-lg);
+    padding: 30px;
+    width: 90%;
+    max-width: 580px;
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+    animation: modalSlideUp var(--transition-speed) cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes modalFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes modalSlideUp {
+    from { transform: translateY(30px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+/* History Timeline Styles */
+.timeline {
+    position: relative;
+    padding-left: 30px;
+    margin-top: 15px;
+    border-left: 2px solid var(--card-border);
+    margin-left: 10px;
+}
+.timeline-item {
+    position: relative;
+    margin-bottom: 20px;
+    padding-left: 10px;
+}
+.timeline-item:last-child {
+    margin-bottom: 0;
+}
+.timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -17px;
+    top: 5px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--accent-glow-secondary);
+    border: 2px solid var(--card-bg);
+    box-shadow: 0 0 8px var(--shadow-glow);
+}
+.timeline-date {
+    font-size: 0.82rem;
+    color: var(--secondary-text);
+    margin-bottom: 4px;
+}
+.timeline-code {
+    font-family: monospace;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--accent-glow-secondary);
+}
+.timeline-label {
+    font-size: 0.9rem;
+    color: var(--primary-text);
 }

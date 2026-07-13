@@ -8,8 +8,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
+    <!-- QR Code Generator Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
     <script>
-        const savedTheme = localStorage.getItem('theme') || 'dark';
+        const savedTheme = localStorage.getItem('theme') || 'light';
         document.documentElement.setAttribute('data-theme', savedTheme);
     </script>
     <style>
@@ -277,16 +279,31 @@
                 <button class="theme-toggle" id="theme-toggle" title="Toggle Light/Dark Mode" style="position: static;">
                     <i class="fa-solid fa-moon"></i>
                 </button>
+                <button class="theme-toggle" id="help-toggle" title="Admin Help Guide" style="position: static;">
+                    <i class="fa-solid fa-circle-question"></i>
+                </button>
             </div>
         </header>
 
         <main class="main-content" style="padding: 0; background: transparent; border: none; box-shadow: none; backdrop-filter: none;">
+            <!-- Help Panel for Shop Admins -->
+            <div id="help-panel" style="display: none; background: rgba(197, 168, 128, 0.06); border: 1px solid var(--accent-glow-secondary); padding: 1.5rem; border-radius: var(--border-radius-md); font-size: 0.95rem; line-height: 1.6; color: var(--primary-text); margin: 0 0 2rem 0; box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
+                <h3 style="color: var(--accent-glow-secondary); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 8px;"><i class="fa-solid fa-circle-info"></i> Admin Control Panel Help</h3>
+                <ul style="list-style: none; display: grid; gap: 10px; padding-left: 0;">
+                    <li><strong>➕ Add Part:</strong> Use the form below to register new parts. Jargon tip: <em>Vehicle brand and model</em> help clients find parts that match their car!</li>
+                    <li><strong>📋 Manage Parts:</strong> View, search, edit, or delete existing parts. Press <em>Edit</em> to populate the Add Part form and update details.</li>
+                    <li><strong>👥 Manage Users:</strong> Create or delete account logins for other shop employees.</li>
+                    <li><strong>💾 Backup / Restore:</strong> Download a copy of your current catalog to your computer so you never lose it.</li>
+                </ul>
+            </div>
             <div class="admin-nav" id="admin-nav" style="display: none;">
                 <button class="admin-btn active" id="nav-part" onclick="switchSection('part')"><i class="fa-solid fa-cogs"></i> Add Part</button>
                 <button class="admin-btn" id="nav-manage" onclick="switchSection('manage')"><i class="fa-solid fa-list-check"></i> Manage Parts</button>
                 <button class="admin-btn" id="nav-users" onclick="switchSection('users')"><i class="fa-solid fa-users"></i> Manage Users</button>
-                <button class="admin-btn" id="nav-backup" onclick="switchSection('backup')" style="background: var(--input-focus); border-color: var(--accent-glow); color: var(--accent-glow);"><i class="fa-solid fa-database"></i> Backup / Restore</button>
+                <button class="admin-btn" id="nav-backup" onclick="switchSection('backup')"><i class="fa-solid fa-database"></i> Backup / Restore</button>
+                <button class="admin-btn" onclick="openPairingModal()" style="color: var(--accent-glow-secondary); border-color: rgba(59, 130, 246, 0.2);"><i class="fa-solid fa-mobile-screen-button"></i> Connect Phone</button>
                 <div style="flex-grow: 1;"></div>
+                <a href="/price.html" style="color: var(--secondary-text); text-decoration: none; font-size: 0.95rem; font-weight: 500; display:flex; align-items:center; gap:5px; transition: color 0.3s; margin-right: 15px;"><i class="fa-solid fa-tags"></i> Pricing Portal</a>
                 <a href="/" style="color: var(--secondary-text); text-decoration: none; font-size: 0.95rem; font-weight: 500; display:flex; align-items:center; gap:5px; transition: color 0.3s; margin-right: 15px;"><i class="fa-solid fa-arrow-left"></i> App</a>
                 <button class="admin-btn" onclick="logout()" style="color: #ff4757; background: rgba(255, 71, 87, 0.05); border-color: transparent;"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
             </div>
@@ -428,18 +445,17 @@
             <div id="section-backup" class="form-section form-wrapper" style="max-height: 600px; overflow-y: auto;">
                 <h2><i class="fa-solid fa-database" style="color: var(--accent-primary);"></i> Download / Restore Database</h2>
                 <p style="color: var(--secondary-text); margin-bottom: 25px; line-height: 1.6;">Export your complete database to sync across different computers, or upload a previously exported version to restore the contents and overwrite this PC's state.</p>
-                
-                <div style="display: flex; gap: 25px; align-items: stretch; flex-wrap: wrap;">
-                    <div style="flex: 1; padding: 30px; background: rgba(0,0,0,0.2); border: 1px solid var(--input-border); border-radius: 16px; text-align: center; min-width: 280px; transition: transform 0.3s; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
+                      <div style="display: flex; gap: 25px; align-items: stretch; flex-wrap: wrap;">
+                    <div style="flex: 1; padding: 30px; background: var(--glass-bg); border: 1px solid var(--input-border); border-radius: 16px; text-align: center; min-width: 280px; transition: transform 0.3s; box-shadow: 0 10px 30px rgba(0,0,0,0.03);">
                          <div style="width: 70px; height: 70px; background: var(--input-focus); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
-                             <i class="fa-solid fa-cloud-arrow-down" style="font-size: 2.2rem; color: var(--accent-glow);"></i>
+                             <i class="fa-solid fa-cloud-arrow-down" style="font-size: 2.2rem; color: var(--accent-glow-secondary);"></i>
                          </div>
                          <h3 style="margin-bottom: 12px; font-weight: 600; font-size: 1.3rem;">Backup Database</h3>
                          <p style="font-size: 0.95rem; color: var(--secondary-text); margin-bottom: 25px;">Download a secure copy of your current parts catalog database.</p>
                          <button onclick="downloadDatabase()" class="btn-primary" style="padding: 15px 25px; width: 100%; justify-content: center;"><i class="fa-solid fa-download"></i> Download Backup</button>
-                    </div>
+                     </div>
 
-                    <div style="flex: 1; padding: 30px; background: rgba(0,0,0,0.2); border: 1px solid rgba(46, 213, 115, 0.3); border-radius: 16px; text-align: center; min-width: 280px; transition: transform 0.3s; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
+                    <div style="flex: 1; padding: 30px; background: var(--glass-bg); border: 1px solid rgba(46, 213, 115, 0.3); border-radius: 16px; text-align: center; min-width: 280px; transition: transform 0.3s; box-shadow: 0 10px 30px rgba(0,0,0,0.03);">
                          <div style="width: 70px; height: 70px; background: rgba(46, 213, 115, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
                              <i class="fa-solid fa-cloud-arrow-up" style="font-size: 2.2rem; color: #2ed573;"></i>
                          </div>
@@ -507,11 +523,47 @@
                 
                 let html = '<table>';
                 html += '<tr><th>Part #</th><th>Name</th><th>Action</th></tr>';
+                
+                const REVERSE_MAP = { '1':'E', '2':'N', '3':'G', '4':'L', '5':'I', '6':'S', '7':'H', '8':'B', '9':'O' };
+                const encodePrice = (price) => {
+                    if (price === null || price === undefined || price === '') return '';
+                    const priceStr = Math.round(Number(price)).toString();
+                    if (isNaN(priceStr)) return '';
+                    const digits = priceStr.split('');
+                    const encodedDigits = [];
+                    let zeroCount = 0;
+                    for (let i = digits.length - 1; i >= 0; i--) {
+                        const digit = digits[i];
+                        if (digit === '0') {
+                            zeroCount++;
+                            encodedDigits.unshift(zeroCount % 2 === 1 ? 'Y' : 'X');
+                        } else if (REVERSE_MAP[digit]) {
+                            encodedDigits.unshift(REVERSE_MAP[digit]);
+                        } else {
+                            encodedDigits.unshift(digit);
+                        }
+                    }
+                    return encodedDigits.join('');
+                };
+
                 parts.forEach(p => {
+                    let displayPrice = '';
+                    if (p.pricing_type === 'standard') {
+                        displayPrice = `${p.cost_price || ''} / ${p.selling_price || ''}`;
+                    } else if (p.pricing_type === 'imported') {
+                        displayPrice = `${p.foreign_price || ''} / ${p.exchange_rate || ''}`;
+                    } else if (p.pricing_type === 'discount') {
+                        displayPrice = `${p.cost_price || ''} / ${p.discount || ''}`;
+                    } else if (p.price) {
+                        displayPrice = encodePrice(p.price);
+                    }
+                    
+                    const priceBadge = displayPrice.trim() && displayPrice !== '/' ? ` • Price Code: ${displayPrice}` : '';
+
                     html += `
                     <tr>
                         <td style="font-family: monospace; font-size: 1.05rem; color: var(--accent-glow);">${p.part_number}</td>
-                        <td><strong style="font-size: 1.05rem;">${p.name}</strong> <span style="display:block; font-size:0.85em; color:var(--secondary-text); margin-top:4px;">${p.category}</span></td>
+                        <td><strong style="font-size: 1.05rem;">${p.name}</strong> <span style="display:block; font-size:0.85em; color:var(--secondary-text); margin-top:4px;">${p.category}${priceBadge}</span></td>
                         <td style="white-space: nowrap; width: 1%;">
                             <button onclick="editPart(${p.id})" class="action-edit"><i class="fa-solid fa-pen-to-square"></i> Edit</button>
                             <button onclick="deletePart(${p.id})" class="action-delete"><i class="fa-solid fa-trash"></i> Delete</button>
@@ -941,6 +993,19 @@
             }
         });
 
+        // Help Toggle Logic
+        const helpToggle = document.getElementById('help-toggle');
+        const helpPanel = document.getElementById('help-panel');
+        if (helpToggle && helpPanel) {
+            helpToggle.addEventListener('click', () => {
+                if (helpPanel.style.display === 'none') {
+                    helpPanel.style.display = 'block';
+                } else {
+                    helpPanel.style.display = 'none';
+                }
+            });
+        }
+
         // Full Screen Toggle Logic
         const fullscreenToggle = document.getElementById('fullscreen-toggle');
         if (fullscreenToggle) {
@@ -964,7 +1029,59 @@
                 }
             });
         }
+
+        // --- Connection Pairing Logic ---
+        async function openPairingModal() {
+            const modal = document.getElementById('pairing-modal');
+            const urlEl = document.getElementById('pairing-server-url');
+            if (!modal) return;
+            
+            modal.style.display = 'flex';
+            urlEl.textContent = "Fetching server URL...";
+            
+            try {
+                const response = await fetch('/api/server-info');
+                const data = await response.json();
+                const url = data.primaryUrl;
+                urlEl.textContent = url;
+                
+                // Render QR code on canvas
+                new QRious({
+                    element: document.getElementById('pairing-qr-canvas'),
+                    value: `CONNECT:${url}`,
+                    size: 200,
+                    background: '#ffffff',
+                    foreground: '#0a2540',
+                    level: 'H'
+                });
+            } catch(e) {
+                urlEl.textContent = "Error: Could not query server configuration.";
+            }
+        }
+        
+        function closePairingModal() {
+            const modal = document.getElementById('pairing-modal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        window.openPairingModal = openPairingModal;
+        window.closePairingModal = closePairingModal;
     </script>
+
+    <!-- Connect Phone QR pairing modal -->
+    <div id="pairing-modal" class="modal-overlay" style="display: none; position: fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.5); backdrop-filter:blur(5px); z-index:1000; justify-content:center; align-items:center;">
+        <div class="modal-content glass-card" style="background:var(--card-bg); border:1px solid var(--card-border); padding:30px; border-radius:var(--border-radius-lg); width:90%; max-width:420px; text-align:center; box-shadow: 0 20px 50px rgba(0,0,0,0.15); display: flex; flex-direction: column; align-items: center;">
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--card-border); padding-bottom:12px; margin-bottom:20px; width: 100%;">
+                <h3 style="margin:0; font-size:1.2rem; font-weight:700; color: var(--primary-text);"><i class="fa-solid fa-mobile-screen-button" style="color:var(--accent-glow-secondary);"></i> Connect Mobile App</h3>
+                <button onclick="closePairingModal()" style="background:none; border:none; color:var(--secondary-text); font-size:1.6rem; cursor:pointer; line-height: 1;">&times;</button>
+            </div>
+            <p style="color:var(--secondary-text); font-size:0.9rem; margin-bottom:20px; line-height:1.5;">Scan this QR code with the Mahesh Catalog Mobile App scanner on the same Wi-Fi network to connect your phone.</p>
+            <div style="background:white; padding:15px; border-radius:12px; display:inline-block; margin-bottom:15px; border:1px solid var(--card-border);">
+                <canvas id="pairing-qr-canvas"></canvas>
+            </div>
+            <div id="pairing-server-url" style="font-family:monospace; font-size:0.85rem; color:var(--secondary-text); word-break:break-all; background:var(--glass-bg); padding:10px; border-radius:6px; margin-top:10px; width: 100%;">Loading Server URL...</div>
+        </div>
+    </div>
 </body>
 
 </html>
