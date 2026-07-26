@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.partscatalog.data.Part
 import com.example.partscatalog.data.PartsRepository
+import com.example.partscatalog.data.PriceHistoryEntry
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,13 +18,13 @@ import java.net.URL
 class MainScreenViewModel(private val repository: PartsRepository) : ViewModel() {
 
     // --- Pairing State ---
-    private val _isPaired = MutableStateFlow(repository.isPaired())
+    private val _isPaired = MutableStateFlow(false)
     val isPaired: StateFlow<Boolean> = _isPaired.asStateFlow()
 
-    private val _pairingUrl = MutableStateFlow(repository.getServerUrl() ?: "")
+    private val _pairingUrl = MutableStateFlow("")
     val pairingUrl: StateFlow<String> = _pairingUrl.asStateFlow()
 
-    private val _username = MutableStateFlow(repository.getUsername() ?: "")
+    private val _username = MutableStateFlow("")
     val username: StateFlow<String> = _username.asStateFlow()
 
     private val _password = MutableStateFlow("")
@@ -35,18 +36,26 @@ class MainScreenViewModel(private val repository: PartsRepository) : ViewModel()
     private val _pairingError = MutableStateFlow<String?>(null)
     val pairingError: StateFlow<String?> = _pairingError.asStateFlow()
 
-    // --- Catalog State ---
+    // --- Catalog and Search States ---
     private val _allParts = MutableStateFlow<List<Part>>(emptyList())
     val allParts: StateFlow<List<Part>> = _allParts.asStateFlow()
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
+    // Desktop search superpower inputs
+    private val _searchType = MutableStateFlow("universal") // "universal" or "specs"
+    val searchType: StateFlow<String> = _searchType.asStateFlow()
+
+    private val _specNameQuery = MutableStateFlow("")
+    val specNameQuery: StateFlow<String> = _specNameQuery.asStateFlow()
+
+    private val _specValueQuery = MutableStateFlow("")
+    val specValueQuery: StateFlow<String> = _specValueQuery.asStateFlow()
+
+    // --- Connection and Sync States ---
     private val _isOnline = MutableStateFlow(false)
     val isOnline: StateFlow<Boolean> = _isOnline.asStateFlow()
-
-    private val _syncQueueSize = MutableStateFlow(repository.getSyncQueueSize())
-    val syncQueueSize: StateFlow<Int> = _syncQueueSize.asStateFlow()
 
     private val _isSyncing = MutableStateFlow(false)
     val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
@@ -54,40 +63,34 @@ class MainScreenViewModel(private val repository: PartsRepository) : ViewModel()
     private val _syncMessage = MutableStateFlow<String?>(null)
     val syncMessage: StateFlow<String?> = _syncMessage.asStateFlow()
 
-    // --- Edit Sheet State ---
-    private val _editingPart = MutableStateFlow<Part?>(null)
-    val editingPart: StateFlow<Part?> = _editingPart.asStateFlow()
+    private val _syncQueueSize = MutableStateFlow(0)
+    val syncQueueSize: StateFlow<Int> = _syncQueueSize.asStateFlow()
 
-    private val _pricingType = MutableStateFlow("standard")
-    val pricingType: StateFlow<String> = _pricingType.asStateFlow()
+    // --- Details Overlay State ---
+    private val _selectedPart = MutableStateFlow<Part?>(null)
+    val selectedPart: StateFlow<Part?> = _selectedPart.asStateFlow()
 
-    private val _costPrice = MutableStateFlow("")
-    val costPrice: StateFlow<String> = _costPrice.asStateFlow()
-
-    private val _sellingPrice = MutableStateFlow("")
-    val sellingPrice: StateFlow<String> = _sellingPrice.asStateFlow()
-
-    private val _discount = MutableStateFlow("")
-    val discount: StateFlow<String> = _discount.asStateFlow()
-
-    private val _foreignPrice = MutableStateFlow("")
-    val foreignPrice: StateFlow<String> = _foreignPrice.asStateFlow()
-
-    private val _exchangeRate = MutableStateFlow("")
-    val exchangeRate: StateFlow<String> = _exchangeRate.asStateFlow()
-
-    private val _computedPreview = MutableStateFlow("")
-    val computedPreview: StateFlow<String> = _computedPreview.asStateFlow()
-
-    // Backward compatibility property for MainScreen UI compilation
-    val uiState: StateFlow<MainScreenUiState> = MutableStateFlow(MainScreenUiState.Loading)
+    private val _priceHistory = MutableStateFlow<List<PriceHistoryEntry>>(emptyList())
+    val priceHistory: StateFlow<List<PriceHistoryEntry>> = _priceHistory.asStateFlow()
 
     private var connectionJob: Job? = null
 
     init {
-        if (_isPaired.value) {
-            loadLocalCatalog()
-            startConnectionPolling()
+        viewModelScope.launch(Dispatchers.IO) {
+            val paired = repository.isPaired()
+            val url = repository.getServerUrl() ?: ""
+            val user = repository.getUsername() ?: ""
+            
+            kotlinx.coroutines.withContext(Dispatchers.Main) {
+                _isPaired.value = paired
+                _pairingUrl.value = url
+                _username.value = user
+                
+                if (paired) {
+                    loadLocalCatalog()
+                    startConnectionPolling()
+                }
+            }
         }
     }
 
@@ -108,13 +111,14 @@ class MainScreenViewModel(private val repository: PartsRepository) : ViewModel()
         viewModelScope.launch {
             _isConnecting.value = true
             _pairingError.value = null
-            val result = repository.connectAndPair(_pairingUrl.value, _username.value, _password.value)
+            val result = kotlinx.coroutines.withContext(Dispatchers.IO) {
+                repository.connectAndPair(_pairingUrl.value, _username.value, _password.value)
+            }
             if (result.isSuccess) {
                 _isPaired.value = true
                 _password.value = ""
                 loadLocalCatalog()
                 startConnectionPolling()
-                // Sync any initial state
                 triggerBackgroundSync()
             } else {
                 _pairingError.value = result.exceptionOrNull()?.message ?: "Connection failed"
@@ -125,151 +129,99 @@ class MainScreenViewModel(private val repository: PartsRepository) : ViewModel()
 
     fun unpairDevice() {
         connectionJob?.cancel()
-        repository.clearPairing()
-        _isPaired.value = false
-        _allParts.value = emptyList()
-        _password.value = ""
-        _pairingError.value = null
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.clearPairing()
+            kotlinx.coroutines.withContext(Dispatchers.Main) {
+                _isPaired.value = false
+                _allParts.value = emptyList()
+                _password.value = ""
+                _pairingError.value = null
+                _selectedPart.value = null
+                _priceHistory.value = emptyList()
+            }
+        }
     }
 
     fun loadLocalCatalog() {
-        _allParts.value = repository.getLocalParts()
-        _syncQueueSize.value = repository.getSyncQueueSize()
+        viewModelScope.launch(Dispatchers.IO) {
+            val parts = repository.getLocalParts()
+            kotlinx.coroutines.withContext(Dispatchers.Main) {
+                _allParts.value = parts
+            }
+        }
+        _syncQueueSize.value = 0
     }
 
-    // --- Catalog Actions ---
+    // --- Search Logic Mimicking Desktop ---
+    fun performLocalSearch() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val results = if (_searchType.value == "universal") {
+                repository.searchPartsLocal(_searchQuery.value)
+            } else {
+                repository.searchPartsBySpecsLocal(_specNameQuery.value, _specValueQuery.value)
+            }
+            _allParts.value = results
+        }
+    }
+
     fun onSearchQueryChanged(query: String) {
         _searchQuery.value = query
+        performLocalSearch()
     }
 
-    fun selectPartForEdit(part: Part) {
-        _editingPart.value = part
-        _pricingType.value = part.pricingType
-        _costPrice.value = part.costPrice ?: ""
-        _sellingPrice.value = part.sellingPrice ?: ""
-        _discount.value = part.discount ?: ""
-        _foreignPrice.value = part.foreignPrice ?: ""
-        _exchangeRate.value = part.exchangeRate ?: ""
-        updateComputedPreview()
+    fun onSpecNameQueryChanged(name: String) {
+        _specNameQuery.value = name
+        performLocalSearch()
     }
 
-    fun closeEditDialog() {
-        _editingPart.value = null
+    fun onSpecValueQueryChanged(value: String) {
+        _specValueQuery.value = value
+        performLocalSearch()
     }
 
-    fun onPricingTypeChanged(type: String) {
-        _pricingType.value = type
-        updateComputedPreview()
+    fun onSearchTypeChanged(type: String) {
+        _searchType.value = type
+        performLocalSearch()
     }
 
-    fun onCostPriceChanged(cost: String) {
-        _costPrice.value = validateCipherString(cost)
+    // --- Details Overlay Actions ---
+    fun showPartDetails(part: Part) {
+        _selectedPart.value = part
+        viewModelScope.launch(Dispatchers.IO) {
+            _priceHistory.value = repository.getPriceHistoryLocal(part.id)
+        }
     }
 
-    fun onSellingPriceChanged(selling: String) {
-        _sellingPrice.value = validateCipherString(selling)
+    fun closePartDetails() {
+        _selectedPart.value = null
+        _priceHistory.value = emptyList()
     }
 
-    fun onDiscountChanged(disc: String) {
-        _discount.value = validateCipherString(disc)
-        updateComputedPreview()
-    }
-
-    fun onForeignPriceChanged(foreign: String) {
-        _foreignPrice.value = validateCipherString(foreign)
-        updateComputedPreview()
-    }
-
-    fun onExchangeRateChanged(rate: String) {
-        _exchangeRate.value = validateCipherString(rate)
-        updateComputedPreview()
-    }
-
-    private fun validateCipherString(input: String): String {
-        return input.uppercase().replace(Regex("[^ENGLIHSBYX0-9.]"), "")
+    fun decodePrice(cipher: String?): Double? {
+        return repository.decodePrice(cipher)
     }
 
     fun encodePrice(price: Double?): String {
         return repository.encodePrice(price)
     }
 
-    private fun updateComputedPreview() {
-        viewModelScope.launch {
-            val type = _pricingType.value
-            if (type == "imported") {
-                val foreign = repository.decodePrice(_foreignPrice.value)
-                val rate = repository.decodePrice(_exchangeRate.value)
-                if (foreign != null && rate != null) {
-                    val computedVal = Math.round(foreign * rate).toDouble()
-                    _computedPreview.value = "Calculated Cost Preview: " + repository.encodePrice(computedVal)
-                } else {
-                    _computedPreview.value = "Calculated Cost Preview: -"
-                }
-            } else if (type == "discount") {
-                val list = repository.decodePrice(_costPrice.value)
-                val disc = repository.decodePrice(_discount.value)
-                if (list != null && disc != null) {
-                    val computedVal = Math.round(list - (list * (disc / 100.0))).toDouble()
-                    _computedPreview.value = "Calculated Net Cost Preview: " + repository.encodePrice(computedVal)
-                } else {
-                    _computedPreview.value = "Calculated Net Cost Preview: -"
-                }
-            } else {
-                _computedPreview.value = ""
-            }
-        }
-    }
-
-    fun savePartPricing() {
-        val part = _editingPart.value ?: return
-        val type = _pricingType.value
-
-        val pricingData = mutableMapOf<String, String>()
-        pricingData["pricing_type"] = type
-
-        if (type == "standard") {
-            pricingData["cost_price"] = _costPrice.value
-            pricingData["selling_price"] = _sellingPrice.value
-        } else if (type == "imported") {
-            pricingData["foreign_price"] = _foreignPrice.value
-            pricingData["exchange_rate"] = _exchangeRate.value
-
-            val foreign = repository.decodePrice(_foreignPrice.value)
-            val rate = repository.decodePrice(_exchangeRate.value)
-            if (foreign != null && rate != null) {
-                pricingData["cost_price"] = repository.encodePrice(Math.round(foreign * rate).toDouble())
-            } else {
-                pricingData["cost_price"] = ""
-            }
-        } else if (type == "discount") {
-            pricingData["cost_price"] = _costPrice.value
-            pricingData["discount"] = _discount.value
-        }
-
-        // Save locally in SQLite & queue for sync
-        repository.savePartPricingLocal(part.id, pricingData)
-        loadLocalCatalog()
-        closeEditDialog()
-
-        // Sync immediately if online
-        if (_isOnline.value) {
-            triggerBackgroundSync()
-        }
-    }
-
-    // --- Sync Operations ---
+    // --- Sync Operations (Download-Only) ---
     fun triggerBackgroundSync() {
+        android.util.Log.d("MainScreenViewModel", "triggerBackgroundSync called. isSyncing: ${_isSyncing.value}, isOnline: ${_isOnline.value}")
         if (_isSyncing.value || !_isOnline.value) return
         viewModelScope.launch {
             _isSyncing.value = true
-            _syncMessage.value = "Syncing with desktop server..."
-            val result = repository.syncPendingPriceUpdates()
+            _syncMessage.value = "Downloading latest catalog database..."
+            android.util.Log.d("MainScreenViewModel", "Starting database sync download...")
+            val result = repository.downloadAndSaveCatalog()
             if (result.isSuccess) {
-                val count = result.getOrThrow()
-                _syncMessage.value = if (count > 0) "Successfully synced $count updates!" else "Catalog is up-to-date."
+                android.util.Log.d("MainScreenViewModel", "Database sync download succeeded! Reloading catalog...")
+                _syncMessage.value = "Catalog database synced successfully!"
                 loadLocalCatalog()
             } else {
-                _syncMessage.value = "Sync failed: " + result.exceptionOrNull()?.message
+                val err = result.exceptionOrNull()
+                android.util.Log.e("MainScreenViewModel", "Database sync download failed!", err)
+                _syncMessage.value = "Sync failed: " + err?.message
             }
             _isSyncing.value = false
             delay(3000)
@@ -278,6 +230,7 @@ class MainScreenViewModel(private val repository: PartsRepository) : ViewModel()
     }
 
     private fun startConnectionPolling() {
+        android.util.Log.d("MainScreenViewModel", "startConnectionPolling called")
         connectionJob?.cancel()
         connectionJob = viewModelScope.launch {
             while (true) {
@@ -288,8 +241,11 @@ class MainScreenViewModel(private val repository: PartsRepository) : ViewModel()
     }
 
     private suspend fun checkConnectionState() {
-        val serverUrl = repository.getServerUrl() ?: return
-        val token = repository.getAuthToken() ?: return
+        val (serverUrl, token) = kotlinx.coroutines.withContext(Dispatchers.IO) {
+            Pair(repository.getServerUrl(), repository.getAuthToken())
+        }
+        android.util.Log.d("MainScreenViewModel", "checkConnectionState: serverUrl=$serverUrl, hasToken=${token != null}")
+        if (serverUrl == null || token == null) return
         try {
             // Check connection by pinging the backend server URL on IO dispatcher
             val status = kotlinx.coroutines.withContext(Dispatchers.IO) {
@@ -303,12 +259,15 @@ class MainScreenViewModel(private val repository: PartsRepository) : ViewModel()
             }
             val wasOnline = _isOnline.value
             _isOnline.value = status in 200..299
+            android.util.Log.d("MainScreenViewModel", "Ping status=$status, isOnline=${_isOnline.value}, wasOnline=$wasOnline")
             
-            // If connection is recovered, trigger auto-sync
+            // If connection is recovered, trigger auto-sync (download database)
             if (_isOnline.value && !wasOnline) {
+                android.util.Log.d("MainScreenViewModel", "Connection transitioned from offline to online. Triggering sync.")
                 triggerBackgroundSync()
             }
         } catch (e: Exception) {
+            android.util.Log.e("MainScreenViewModel", "Ping failed", e)
             _isOnline.value = false
         }
     }

@@ -11,6 +11,9 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
+import javax.crypto.Cipher
+import javax.crypto.spec.IvParameterSpec
+import javax.crypto.spec.SecretKeySpec
 
 data class Part(
     val id: Int,
@@ -26,10 +29,23 @@ data class Part(
     val sellingPrice: String?,
     val discount: String?,
     val foreignPrice: String?,
+    val exchangeRate: String?,
+    val specifications: String? = null,
+    val vehicleFits: String? = null,
+    val engineFitment: String? = null
+)
+
+data class PriceHistoryEntry(
+    val changedAt: String,
+    val pricingType: String,
+    val costPrice: String?,
+    val sellingPrice: String?,
+    val discount: String?,
+    val foreignPrice: String?,
     val exchangeRate: String?
 )
 
-class PartsRepository(context: Context) : DataRepository {
+class PartsRepository(private val context: Context) : DataRepository {
 
     private val dbHelper = DatabaseHelper(context)
 
@@ -37,14 +53,53 @@ class PartsRepository(context: Context) : DataRepository {
         const val KEY_SERVER_URL = "server_url"
         const val KEY_AUTH_TOKEN = "auth_token"
         const val KEY_USERNAME = "username"
+        private const val ENCRYPTION_KEY = "my_super_secret_key_for_pricing_"
     }
 
-    // From DataRepository interface: provides a list of part SKU/names for backward compatibility
     override val data: Flow<List<String>> = flow {
         emit(getLocalParts().map { "${it.name} (${it.partNumber})" })
     }.flowOn(Dispatchers.IO)
 
-    // --- Cipher Logic (ENGLISHBOY + X) ---
+    // --- Pricing Decryption Logic (AES-256-CBC) ---
+    private fun decryptAES(encryptedText: String?): String? {
+        if (encryptedText.isNullOrBlank()) return null
+        try {
+            val parts = encryptedText.split(":")
+            if (parts.size != 2) return encryptedText // Return as-is if not in standard iv:cipher format
+            val ivHex = parts[0]
+            val dataHex = parts[1]
+
+            val iv = hexToBytes(ivHex)
+            val dataBytes = hexToBytes(dataHex)
+
+            val keyBytes = ENCRYPTION_KEY.toByteArray(Charsets.UTF_8)
+            val secretKey = SecretKeySpec(keyBytes, "AES")
+            val ivSpec = IvParameterSpec(iv)
+
+            val cipher = Cipher.getInstance("AES/CBC/PKCS5Padding")
+            cipher.init(Cipher.DECRYPT_MODE, secretKey, ivSpec)
+            val decryptedBytes = cipher.doFinal(dataBytes)
+            return String(decryptedBytes, Charsets.UTF_8)
+        } catch (e: Exception) {
+            return encryptedText
+        }
+    }
+
+    private fun hexToBytes(hex: String): ByteArray {
+        val len = hex.length
+        val data = ByteArray(len / 2)
+        var i = 0
+        while (i < len) {
+            val h1 = Character.digit(hex[i], 16)
+            val h2 = Character.digit(hex[i + 1], 16)
+            if (h1 == -1 || h2 == -1) return ByteArray(0)
+            data[i / 2] = ((h1 shl 4) + h2).toByte()
+            i += 2
+        }
+        return data
+    }
+
+    // --- Cipher Conversion (ENGLISHBOY + X) ---
     fun encodePrice(price: Double?): String {
         if (price == null) return ""
         val priceStr = Math.round(price).toString()
@@ -104,8 +159,10 @@ class PartsRepository(context: Context) : DataRepository {
     fun clearPairing() {
         dbHelper.clearAllSettings()
         val db = dbHelper.writableDatabase
-        db.delete(DatabaseHelper.TABLE_PARTS, null, null)
-        db.delete(DatabaseHelper.TABLE_SYNC_QUEUE, null, null)
+        try {
+            db.delete(DatabaseHelper.TABLE_PARTS, null, null)
+            db.delete(DatabaseHelper.TABLE_SYNC_QUEUE, null, null)
+        } catch (e: Exception) {}
     }
 
     // Network request executor
@@ -148,7 +205,7 @@ class PartsRepository(context: Context) : DataRepository {
     }
 
     suspend fun connectAndPair(url: String, user: String, pass: String): Result<Unit> {
-        return withContextIO {
+        return kotlinx.coroutines.withContext(Dispatchers.IO) {
             try {
                 var cleanUrl = url.trim()
                 if (!cleanUrl.startsWith("http://") && !cleanUrl.startsWith("https://")) {
@@ -174,36 +231,63 @@ class PartsRepository(context: Context) : DataRepository {
                 dbHelper.saveSetting(KEY_AUTH_TOKEN, token)
                 dbHelper.saveSetting(KEY_USERNAME, username)
 
-                // 3. Trigger immediate download to verify connection and populate local DB
-                downloadAndSaveCatalogInternal(cleanUrl, token)
+                // 3. Trigger immediate DB file download to verify connection and populate local DB
+                val downloadRes = downloadAndSaveCatalog()
+                if (downloadRes.isFailure) {
+                    throw downloadRes.exceptionOrNull() ?: Exception("Failed to download catalog database")
+                }
 
                 Result.success(Unit)
             } catch (e: Exception) {
-                // If failed, make sure to revert configuration changes
                 clearPairing()
                 Result.failure(e)
             }
         }
     }
 
+
     // --- Offline database query operations ---
     fun getLocalParts(): List<Part> {
         val list = mutableListOf<Part>()
         val db = dbHelper.readableDatabase
-        val cursor = db.query(DatabaseHelper.TABLE_PARTS, null, null, null, null, null, "${DatabaseHelper.COL_PART_ID} DESC")
-        while (cursor.moveToNext()) {
-            list.add(cursorToPart(cursor))
+
+        val sb = StringBuilder()
+        sb.append("SELECT p.*, ")
+        sb.append("(CASE WHEN p.engine_type IS NOT NULL AND p.engine_type != '' THEN 'Engine: ' || p.engine_type ELSE '' END) as engine_fitment, ")
+        sb.append("GROUP_CONCAT(DISTINCT COALESCE(UPPER(v.brand) || ' ' || v.model || ' ' || COALESCE(v.submodel, '') || COALESCE(' ' || NULLIF(v.engine_type, ''), ''), NULLIF(TRIM(COALESCE(UPPER(p.vehicle_brand), '') || ' ' || COALESCE(p.vehicle_model, '')), ''))) as vehicle_fits ")
+        sb.append("FROM parts p ")
+        sb.append("LEFT JOIN part_compatibility pc ON p.id = pc.oem_part_id ")
+        sb.append("LEFT JOIN parts gp ON pc.genuine_part_number = gp.part_number ")
+        sb.append("LEFT JOIN ( ")
+        sb.append("    SELECT id as p_id, vehicle_id FROM parts WHERE vehicle_id IS NOT NULL ")
+        sb.append("    UNION ")
+        sb.append("    SELECT pc.oem_part_id as p_id, gp.vehicle_id ")
+        sb.append("    FROM part_compatibility pc ")
+        sb.append("    JOIN parts gp ON pc.genuine_part_number = gp.part_number ")
+        sb.append("    WHERE gp.vehicle_id IS NOT NULL ")
+        sb.append(") pv ON p.id = pv.p_id ")
+        sb.append("LEFT JOIN vehicles v ON pv.vehicle_id = v.id ")
+        sb.append("GROUP BY p.id ORDER BY p.id DESC LIMIT 100")
+
+        try {
+            val cursor = db.rawQuery(sb.toString(), null)
+            while (cursor.moveToNext()) {
+                list.add(cursorToPart(cursor))
+            }
+            cursor.close()
+        } catch (e: Exception) {
+            android.util.Log.e("PartsRepository", "Error in getLocalParts", e)
+            return emptyList()
         }
-        cursor.close()
         return list
     }
 
     fun getPartById(id: Int): Part? {
         val db = dbHelper.readableDatabase
         val cursor = db.query(
-            DatabaseHelper.TABLE_PARTS,
+            "parts",
             null,
-            "${DatabaseHelper.COL_PART_ID} = ?",
+            "id = ?",
             arrayOf(id.toString()),
             null, null, null
         )
@@ -218,9 +302,9 @@ class PartsRepository(context: Context) : DataRepository {
     fun getPartByNumber(partNumber: String): Part? {
         val db = dbHelper.readableDatabase
         val cursor = db.query(
-            DatabaseHelper.TABLE_PARTS,
+            "parts",
             null,
-            "UPPER(${DatabaseHelper.COL_PART_NUMBER}) = ?",
+            "UPPER(part_number) = ?",
             arrayOf(partNumber.uppercase().trim()),
             null, null, null
         )
@@ -232,157 +316,256 @@ class PartsRepository(context: Context) : DataRepository {
         return part
     }
 
+    // Advanced search mimicking express server's multi-word matching
+    fun searchPartsLocal(query: String): List<Part> {
+        val list = mutableListOf<Part>()
+        val db = dbHelper.readableDatabase
+
+        val words = query.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
+
+        val sb = StringBuilder()
+        sb.append("SELECT p.*, ")
+        sb.append("(CASE WHEN p.engine_type IS NOT NULL AND p.engine_type != '' THEN 'Engine: ' || p.engine_type ELSE '' END) as engine_fitment, ")
+        sb.append("GROUP_CONCAT(DISTINCT COALESCE(UPPER(v.brand) || ' ' || v.model || ' ' || COALESCE(v.submodel, '') || COALESCE(' ' || NULLIF(v.engine_type, ''), ''), NULLIF(TRIM(COALESCE(UPPER(p.vehicle_brand), '') || ' ' || COALESCE(p.vehicle_model, '')), ''))) as vehicle_fits ")
+        sb.append("FROM parts p ")
+        sb.append("LEFT JOIN part_compatibility pc ON p.id = pc.oem_part_id ")
+        sb.append("LEFT JOIN parts gp ON pc.genuine_part_number = gp.part_number ")
+        sb.append("LEFT JOIN ( ")
+        sb.append("    SELECT id as p_id, vehicle_id FROM parts WHERE vehicle_id IS NOT NULL ")
+        sb.append("    UNION ")
+        sb.append("    SELECT pc.oem_part_id as p_id, gp.vehicle_id ")
+        sb.append("    FROM part_compatibility pc ")
+        sb.append("    JOIN parts gp ON pc.genuine_part_number = gp.part_number ")
+        sb.append("    WHERE gp.vehicle_id IS NOT NULL ")
+        sb.append(") pv ON p.id = pv.p_id ")
+        sb.append("LEFT JOIN vehicles v ON pv.vehicle_id = v.id ")
+
+        val args = mutableListOf<String>()
+        if (words.isNotEmpty()) {
+            sb.append("WHERE (")
+            for (i in words.indices) {
+                if (i > 0) sb.append(" AND ")
+                sb.append("(")
+                sb.append("p.part_number LIKE ? OR ")
+                sb.append("p.name LIKE ? OR ")
+                sb.append("p.description LIKE ? OR ")
+                sb.append("p.brand LIKE ? OR ")
+                sb.append("p.engine_type LIKE ? OR ")
+                sb.append("p.vehicle_brand LIKE ? OR ")
+                sb.append("p.vehicle_model LIKE ? OR ")
+                sb.append("p.specifications LIKE ? OR ")
+                sb.append("v.brand LIKE ? OR ")
+                sb.append("v.model LIKE ? OR ")
+                sb.append("v.submodel LIKE ? OR ")
+                sb.append("v.engine_type LIKE ? OR ")
+                sb.append("gp.part_number LIKE ?")
+                sb.append(")")
+                val pattern = "%${words[i]}%"
+                for (j in 0 until 13) {
+                    args.add(pattern)
+                }
+            }
+            sb.append(") ")
+        }
+
+        sb.append("GROUP BY p.id ORDER BY p.id DESC LIMIT 100")
+
+        try {
+            val cursor = db.rawQuery(sb.toString(), args.toTypedArray())
+            while (cursor.moveToNext()) {
+                list.add(cursorToPart(cursor))
+            }
+            cursor.close()
+        } catch (e: Exception) {
+            android.util.Log.e("PartsRepository", "Error in searchPartsLocal", e)
+            return emptyList()
+        }
+        return list
+    }
+
+    // Specification search matching category/names and spec attributes
+    fun searchPartsBySpecsLocal(partName: String, specValue: String): List<Part> {
+        val list = mutableListOf<Part>()
+        val db = dbHelper.readableDatabase
+
+        val sb = StringBuilder()
+        sb.append("SELECT p.*, ")
+        sb.append("(CASE WHEN p.engine_type IS NOT NULL AND p.engine_type != '' THEN 'Engine: ' || p.engine_type ELSE '' END) as engine_fitment, ")
+        sb.append("GROUP_CONCAT(DISTINCT COALESCE(UPPER(v.brand) || ' ' || v.model || ' ' || COALESCE(v.submodel, '') || COALESCE(' ' || NULLIF(v.engine_type, ''), ''), NULLIF(TRIM(COALESCE(UPPER(p.vehicle_brand), '') || ' ' || COALESCE(p.vehicle_model, '')), ''))) as vehicle_fits ")
+        sb.append("FROM parts p ")
+        sb.append("LEFT JOIN part_compatibility pc ON p.id = pc.oem_part_id ")
+        sb.append("LEFT JOIN parts gp ON pc.genuine_part_number = gp.part_number ")
+        sb.append("LEFT JOIN ( ")
+        sb.append("    SELECT id as p_id, vehicle_id FROM parts WHERE vehicle_id IS NOT NULL ")
+        sb.append("    UNION ")
+        sb.append("    SELECT pc.oem_part_id as p_id, gp.vehicle_id ")
+        sb.append("    FROM part_compatibility pc ")
+        sb.append("    JOIN parts gp ON pc.genuine_part_number = gp.part_number ")
+        sb.append("    WHERE gp.vehicle_id IS NOT NULL ")
+        sb.append(") pv ON p.id = pv.p_id ")
+        sb.append("LEFT JOIN vehicles v ON pv.vehicle_id = v.id ")
+
+        val args = mutableListOf<String>()
+        var hasWhere = false
+
+        if (partName.isNotBlank()) {
+            sb.append("WHERE (p.name LIKE ? OR p.category LIKE ?) ")
+            args.add("%$partName%")
+            args.add("%$partName%")
+            hasWhere = true
+        }
+
+        if (specValue.isNotBlank()) {
+            if (hasWhere) {
+                sb.append("AND ")
+            } else {
+                sb.append("WHERE ")
+            }
+            sb.append("(p.specifications LIKE ? OR p.description LIKE ? OR p.name LIKE ? OR p.part_number LIKE ?) ")
+            args.add("%$specValue%")
+            args.add("%$specValue%")
+            args.add("%$specValue%")
+            args.add("%$specValue%")
+        }
+
+        sb.append("GROUP BY p.id ORDER BY p.id DESC LIMIT 100")
+
+        try {
+            val cursor = db.rawQuery(sb.toString(), args.toTypedArray())
+            while (cursor.moveToNext()) {
+                list.add(cursorToPart(cursor))
+            }
+            cursor.close()
+        } catch (e: Exception) {
+            android.util.Log.e("PartsRepository", "Error in searchPartsBySpecsLocal", e)
+            return emptyList()
+        }
+        return list
+    }
+
+    // Historical revisions retrieval
+    fun getPriceHistoryLocal(partId: Int): List<PriceHistoryEntry> {
+        val list = mutableListOf<PriceHistoryEntry>()
+        val db = dbHelper.readableDatabase
+        try {
+            val cursor = db.query(
+                "price_history",
+                null,
+                "part_id = ?",
+                arrayOf(partId.toString()),
+                null, null, "id DESC"
+            )
+            while (cursor.moveToNext()) {
+                list.add(
+                    PriceHistoryEntry(
+                        changedAt = cursor.getString(cursor.getColumnIndexOrThrow("changed_at")),
+                        pricingType = cursor.getString(cursor.getColumnIndexOrThrow("pricing_type")) ?: "standard",
+                        costPrice = decryptAES(cursor.getString(cursor.getColumnIndexOrThrow("cost_price"))),
+                        sellingPrice = decryptAES(cursor.getString(cursor.getColumnIndexOrThrow("selling_price"))),
+                        discount = decryptAES(cursor.getString(cursor.getColumnIndexOrThrow("discount"))),
+                        foreignPrice = decryptAES(cursor.getString(cursor.getColumnIndexOrThrow("foreign_price"))),
+                        exchangeRate = decryptAES(cursor.getString(cursor.getColumnIndexOrThrow("exchange_rate")))
+                    )
+                )
+            }
+            cursor.close()
+        } catch (e: Exception) {
+            // Table doesn't exist yet or other query error
+            return emptyList()
+        }
+        return list
+    }
+
     private fun cursorToPart(cursor: android.database.Cursor): Part {
+        val specIdx = cursor.getColumnIndex("specifications")
+        val fitsIdx = cursor.getColumnIndex("vehicle_fits")
+        val engIdx = cursor.getColumnIndex("engine_fitment")
+
         return Part(
-            id = cursor.getInt(cursor.getColumnIndexOrThrow(DatabaseHelper.COL_PART_ID)),
-            partNumber = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.COL_PART_NUMBER)),
-            name = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.COL_PART_NAME)),
-            description = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.COL_PART_DESCRIPTION)),
-            category = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.COL_PART_CATEGORY)),
-            partType = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.COL_PART_TYPE)) ?: "Genuine",
-            brand = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.COL_PART_BRAND)),
-            price = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.COL_PART_PRICE)),
-            pricingType = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.COL_PART_PRICING_TYPE)) ?: "standard",
-            costPrice = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.COL_PART_COST_PRICE)),
-            sellingPrice = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.COL_PART_SELLING_PRICE)),
-            discount = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.COL_PART_DISCOUNT)),
-            foreignPrice = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.COL_PART_FOREIGN_PRICE)),
-            exchangeRate = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.COL_PART_EXCHANGE_RATE))
+            id = cursor.getInt(cursor.getColumnIndexOrThrow("id")),
+            partNumber = cursor.getString(cursor.getColumnIndexOrThrow("part_number")),
+            name = cursor.getString(cursor.getColumnIndexOrThrow("name")),
+            description = cursor.getString(cursor.getColumnIndexOrThrow("description")),
+            category = cursor.getString(cursor.getColumnIndexOrThrow("category")),
+            partType = cursor.getString(cursor.getColumnIndexOrThrow("part_type")) ?: "Genuine",
+            brand = cursor.getString(cursor.getColumnIndexOrThrow("brand")),
+            price = decryptAES(cursor.getString(cursor.getColumnIndexOrThrow("price"))),
+            pricingType = cursor.getString(cursor.getColumnIndexOrThrow("pricing_type")) ?: "standard",
+            costPrice = decryptAES(cursor.getString(cursor.getColumnIndexOrThrow("cost_price"))),
+            sellingPrice = decryptAES(cursor.getString(cursor.getColumnIndexOrThrow("selling_price"))),
+            discount = decryptAES(cursor.getString(cursor.getColumnIndexOrThrow("discount"))),
+            foreignPrice = decryptAES(cursor.getString(cursor.getColumnIndexOrThrow("foreign_price"))),
+            exchangeRate = decryptAES(cursor.getString(cursor.getColumnIndexOrThrow("exchange_rate"))),
+            specifications = if (specIdx >= 0) cursor.getString(specIdx) else null,
+            vehicleFits = if (fitsIdx >= 0) cursor.getString(fitsIdx) else null,
+            engineFitment = if (engIdx >= 0) cursor.getString(engIdx) else null
         )
     }
 
-    // --- Save Local & Add to Offline Queue ---
+    // --- Save Local (Deprecated for View-Only) ---
     fun savePartPricingLocal(partId: Int, pricingData: Map<String, String>): Boolean {
-        val part = getPartById(partId) ?: return false
-
-        // 1. Queue to local sync queue (JSON encoded)
-        val json = JSONObject().apply {
-            pricingData.forEach { (key, value) -> put(key, value) }
-        }
-        dbHelper.addToSyncQueue(partId, json.toString())
-
-        // 2. Modify in local SQLite immediately for instant offline feedback
-        val db = dbHelper.writableDatabase
-        val values = ContentValues().apply {
-            valuesOfPricing(this, pricingData)
-        }
-        db.update(DatabaseHelper.TABLE_PARTS, values, "${DatabaseHelper.COL_PART_ID} = ?", arrayOf(partId.toString()))
-        return true
+        return false
     }
 
-    private fun valuesOfPricing(cv: ContentValues, pricingData: Map<String, String>) {
-        cv.put(DatabaseHelper.COL_PART_PRICING_TYPE, pricingData["pricing_type"] ?: "standard")
-        cv.put(DatabaseHelper.COL_PART_COST_PRICE, pricingData["cost_price"] ?: "")
-        cv.put(DatabaseHelper.COL_PART_SELLING_PRICE, pricingData["selling_price"] ?: "")
-        cv.put(DatabaseHelper.COL_PART_DISCOUNT, pricingData["discount"] ?: "")
-        cv.put(DatabaseHelper.COL_PART_FOREIGN_PRICE, pricingData["foreign_price"] ?: "")
-        cv.put(DatabaseHelper.COL_PART_EXCHANGE_RATE, pricingData["exchange_rate"] ?: "")
-    }
-
-    // --- Sync Engine Execution Helpers ---
-    fun getSyncQueueSize(): Int = dbHelper.getSyncQueue().size
+    fun getSyncQueueSize(): Int = 0
 
     suspend fun syncPendingPriceUpdates(): Result<Int> {
-        val serverUrl = getServerUrl() ?: return Result.failure(Exception("Not paired"))
-        val token = getAuthToken() ?: return Result.failure(Exception("Unauthorized"))
-
-        return withContextIO {
-            try {
-                val queue = dbHelper.getSyncQueue()
-                var syncCount = 0
-                for (item in queue) {
-                    // Send PATCH api update request to Express
-                    executeHttp(
-                        "$serverUrl/api/parts/${item.partId}/price",
-                        "PATCH",
-                        item.data,
-                        token
-                    )
-                    // Successfully synced, remove from queue
-                    dbHelper.deleteSyncItem(item.id)
-                    syncCount++
-                }
-
-                // Download fresh catalog to ensure correct states and synced prices are matching
-                downloadAndSaveCatalogInternal(serverUrl, token)
-
-                Result.success(syncCount)
-            } catch (e: Exception) {
-                Result.failure(e)
-            }
-        }
+        return Result.success(0)
     }
 
+    // --- One-Way Full Database Sync ---
     suspend fun downloadAndSaveCatalog(): Result<List<Part>> {
         val serverUrl = getServerUrl() ?: return Result.failure(Exception("Not paired"))
         val token = getAuthToken() ?: return Result.failure(Exception("Unauthorized"))
-        return withContextIO {
+        val username = getUsername() ?: return Result.failure(Exception("No username"))
+
+        return kotlinx.coroutines.withContext(Dispatchers.IO) {
             try {
-                val list = downloadAndSaveCatalogInternal(serverUrl, token)
-                Result.success(list)
+                // 1. Close current helper connection
+                dbHelper.close()
+
+                val dbFile = context.getDatabasePath("parts_catalog_offline.db")
+                
+                // Delete WAL, SHM, and journal files to prevent SQLite version recovery/locks
+                java.io.File(dbFile.path + "-wal").delete()
+                java.io.File(dbFile.path + "-shm").delete()
+                java.io.File(dbFile.path + "-journal").delete()
+                dbFile.delete()
+
+                // 2. Download sqlite database file
+                val url = URL("$serverUrl/api/database/download")
+                val conn = url.openConnection() as HttpURLConnection
+                conn.requestMethod = "GET"
+                conn.setRequestProperty("Authorization", "Bearer $token")
+                conn.connectTimeout = 15000
+                conn.readTimeout = 15000
+
+                val status = conn.responseCode
+                if (status !in 200..299) {
+                    throw Exception("Server returned code $status")
+                }
+
+                dbFile.parentFile?.mkdirs()
+
+                conn.inputStream.use { input ->
+                    java.io.FileOutputStream(dbFile).use { output ->
+                        input.copyTo(output)
+                    }
+                }
+
+                // 3. Restore user pairing settings inside the newly replaced database file
+                dbHelper.saveSetting(KEY_SERVER_URL, serverUrl)
+                dbHelper.saveSetting(KEY_AUTH_TOKEN, token)
+                dbHelper.saveSetting(KEY_USERNAME, username)
+
+                // 4. Return parts list
+                Result.success(getLocalParts())
             } catch (e: Exception) {
                 Result.failure(e)
             }
         }
     }
 
-    private fun downloadAndSaveCatalogInternal(serverUrl: String, token: String): List<Part> {
-        val response = executeHttp("$serverUrl/api/parts/all", "GET", null, token)
-        val array = JSONArray(response)
-        val partsList = mutableListOf<Part>()
-
-        val db = dbHelper.writableDatabase
-        db.beginTransaction()
-        try {
-            // Overwrite old database cache
-            db.delete(DatabaseHelper.TABLE_PARTS, null, null)
-
-            for (i in 0 until array.length()) {
-                val obj = array.getJSONObject(i)
-                val id = obj.getInt("id")
-                val partNumber = obj.getString("part_number")
-                val name = obj.getString("name")
-                val description = obj.optString("description", "")
-                val category = obj.optString("category", "")
-                val partType = obj.optString("part_type", "Genuine")
-                val brand = obj.optString("brand", "")
-                val price = obj.optString("price", "")
-                val pricingType = obj.optString("pricing_type", "standard")
-                val costPrice = obj.optString("cost_price", "")
-                val sellingPrice = obj.optString("selling_price", "")
-                val discount = obj.optString("discount", "")
-                val foreignPrice = obj.optString("foreign_price", "")
-                val exchangeRate = obj.optString("exchange_rate", "")
-
-                val values = ContentValues().apply {
-                    put(DatabaseHelper.COL_PART_ID, id)
-                    put(DatabaseHelper.COL_PART_NUMBER, partNumber)
-                    put(DatabaseHelper.COL_PART_NAME, name)
-                    put(DatabaseHelper.COL_PART_DESCRIPTION, description)
-                    put(DatabaseHelper.COL_PART_CATEGORY, category)
-                    put(DatabaseHelper.COL_PART_TYPE, partType)
-                    put(DatabaseHelper.COL_PART_BRAND, brand)
-                    put(DatabaseHelper.COL_PART_PRICE, price)
-                    put(DatabaseHelper.COL_PART_PRICING_TYPE, pricingType)
-                    put(DatabaseHelper.COL_PART_COST_PRICE, costPrice)
-                    put(DatabaseHelper.COL_PART_SELLING_PRICE, sellingPrice)
-                    put(DatabaseHelper.COL_PART_DISCOUNT, discount)
-                    put(DatabaseHelper.COL_PART_FOREIGN_PRICE, foreignPrice)
-                    put(DatabaseHelper.COL_PART_EXCHANGE_RATE, exchangeRate)
-                }
-                db.insert(DatabaseHelper.TABLE_PARTS, null, values)
-
-                partsList.add(
-                    Part(id, partNumber, name, description, category, partType, brand, price,
-                        pricingType, costPrice, sellingPrice, discount, foreignPrice, exchangeRate)
-                )
-            }
-            db.setTransactionSuccessful()
-        } finally {
-            db.endTransaction()
-        }
-        return partsList
-    }
 
     // Helper for running operations in IO thread pool safely
     private suspend inline fun <T> withContextIO(crossinline block: () -> T): T {

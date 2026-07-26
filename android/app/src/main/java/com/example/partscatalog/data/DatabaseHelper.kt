@@ -48,14 +48,14 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
     override fun onCreate(db: SQLiteDatabase) {
         // Create settings table
         db.execSQL(
-            "CREATE TABLE $TABLE_SETTINGS (" +
+            "CREATE TABLE IF NOT EXISTS $TABLE_SETTINGS (" +
                     "$COL_SETTING_KEY TEXT PRIMARY KEY, " +
                     "$COL_SETTING_VALUE TEXT)"
         )
 
         // Create parts table
         db.execSQL(
-            "CREATE TABLE $TABLE_PARTS (" +
+            "CREATE TABLE IF NOT EXISTS $TABLE_PARTS (" +
                     "$COL_PART_ID INTEGER PRIMARY KEY, " +
                     "$COL_PART_NUMBER TEXT, " +
                     "$COL_PART_NAME TEXT, " +
@@ -74,7 +74,7 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
 
         // Create sync queue table
         db.execSQL(
-            "CREATE TABLE $TABLE_SYNC_QUEUE (" +
+            "CREATE TABLE IF NOT EXISTS $TABLE_SYNC_QUEUE (" +
                     "$COL_SYNC_ID INTEGER PRIMARY KEY AUTOINCREMENT, " +
                     "$COL_SYNC_PART_ID INTEGER, " +
                     "$COL_SYNC_DATA TEXT, " +
@@ -88,6 +88,20 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         db.execSQL("DROP TABLE IF EXISTS $TABLE_SYNC_QUEUE")
         onCreate(db)
     }
+
+    override fun onOpen(db: SQLiteDatabase) {
+        super.onOpen(db)
+        try {
+            db.version = DATABASE_VERSION
+        } catch (e: Exception) {}
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS $TABLE_SETTINGS (" +
+                    "$COL_SETTING_KEY TEXT PRIMARY KEY, " +
+                    "$COL_SETTING_VALUE TEXT)"
+        )
+    }
+
+
 
     // --- Settings Helpers ---
     fun saveSetting(key: String, value: String?) {

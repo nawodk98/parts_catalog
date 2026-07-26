@@ -429,8 +429,11 @@ app.get('/api/parts/specs', (req, res) => {
 
 // Download Database Endpoint for Offline Mobile Sync
 app.get('/api/database/download', (req, res) => {
-    res.download(dbPath, 'parts.sqlite', (err) => {
-        if (err) console.error("Error downloading database:", err);
+    db.run("PRAGMA wal_checkpoint(TRUNCATE)", (err) => {
+        if (err) console.error("WAL checkpoint failed before download:", err);
+        res.download(dbPath, 'parts.sqlite', (downloadErr) => {
+            if (downloadErr) console.error("Error downloading database:", downloadErr);
+        });
     });
 });
 
