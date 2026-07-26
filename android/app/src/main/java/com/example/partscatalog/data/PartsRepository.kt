@@ -245,6 +245,49 @@ class PartsRepository(private val context: Context) : DataRepository {
         }
     }
 
+    /**
+     * Pair device using a one-time QR login token scanned from the admin dashboard.
+     * The QR code encodes "QRLOGIN:<token>" and includes the server URL separately.
+     */
+    suspend fun connectAndPairViaQrLogin(serverUrl: String, qrToken: String): Result<Unit> {
+        return kotlinx.coroutines.withContext(Dispatchers.IO) {
+            try {
+                var cleanUrl = serverUrl.trim()
+                if (!cleanUrl.startsWith("http://") && !cleanUrl.startsWith("https://")) {
+                    cleanUrl = "http://$cleanUrl"
+                }
+                while (cleanUrl.endsWith("/")) {
+                    cleanUrl = cleanUrl.substring(0, cleanUrl.length - 1)
+                }
+
+                // Redeem the one-time QR token for a session auth token
+                val loginResponse = executeHttp(
+                    "$cleanUrl/api/qr-login?token=${java.net.URLEncoder.encode(qrToken, "UTF-8")}",
+                    "GET"
+                )
+                val loginJson = JSONObject(loginResponse)
+                val token = loginJson.getString("token")
+                val username = loginJson.optString("username", "admin")
+
+                // Save credentials
+                dbHelper.saveSetting(KEY_SERVER_URL, cleanUrl)
+                dbHelper.saveSetting(KEY_AUTH_TOKEN, token)
+                dbHelper.saveSetting(KEY_USERNAME, username)
+
+                // Download the catalog
+                val downloadRes = downloadAndSaveCatalog()
+                if (downloadRes.isFailure) {
+                    throw downloadRes.exceptionOrNull() ?: Exception("Failed to download catalog database")
+                }
+
+                Result.success(Unit)
+            } catch (e: Exception) {
+                clearPairing()
+                Result.failure(e)
+            }
+        }
+    }
+
 
     // --- Offline database query operations ---
     fun getLocalParts(): List<Part> {

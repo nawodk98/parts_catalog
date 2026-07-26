@@ -86,6 +86,33 @@ fun PairingView(viewModel: MainScreenViewModel) {
     val password by viewModel.password.collectAsState()
     val isConnecting by viewModel.isConnecting.collectAsState()
     val error by viewModel.pairingError.collectAsState()
+    val context = LocalContext.current
+
+    // QR scanner: reads CONNECT:<url> from admin "Connect Phone" QR
+    val triggerUrlQrScan: () -> Unit = {
+        val scanner = GmsBarcodeScanning.getClient(context)
+        scanner.startScan()
+            .addOnSuccessListener { barcode ->
+                val raw = barcode.rawValue ?: return@addOnSuccessListener
+                val url = when {
+                    raw.startsWith("CONNECT:") -> raw.removePrefix("CONNECT:").trim()
+                    raw.startsWith("http://") || raw.startsWith("https://") -> raw.trim()
+                    else -> null
+                }
+                if (url != null) {
+                    viewModel.onPairingUrlChanged(url)
+                    // Auto-connect if credentials already filled
+                    if (viewModel.username.value.isNotBlank() && viewModel.password.value.isNotBlank()) {
+                        viewModel.pairDevice()
+                    }
+                } else {
+                    Toast.makeText(context, "Not a valid server QR code", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .addOnFailureListener {
+                Toast.makeText(context, "Scan cancelled", Toast.LENGTH_SHORT).show()
+            }
+    }
 
     Box(
         modifier = Modifier.fillMaxSize(),
@@ -122,7 +149,7 @@ fun PairingView(viewModel: MainScreenViewModel) {
                 )
 
                 Text(
-                    text = "Enter details to pair with the desktop catalog server",
+                    text = "Scan the server QR or enter details manually",
                     color = TextSecondaryDark,
                     fontSize = 12.sp,
                     textAlign = TextAlign.Center,
@@ -131,12 +158,68 @@ fun PairingView(viewModel: MainScreenViewModel) {
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Server URL input
+                // ── Primary: Scan Server QR ────────────────────────────────
+                Button(
+                    onClick = triggerUrlQrScan,
+                    colors = ButtonDefaults.buttonColors(containerColor = AccentPurple),
+                    shape = RoundedCornerShape(30.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isConnecting
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.QrCodeScanner,
+                        contentDescription = "Scan QR",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = "Scan Server QR Code",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        color = Color.White
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "Tap 'Connect Phone' in the Admin Dashboard to show the QR",
+                    color = TextSecondaryDark,
+                    fontSize = 11.sp,
+                    textAlign = TextAlign.Center
+                )
+
+                // ── Divider ────────────────────────────────────────────────
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 20.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    HorizontalDivider(modifier = Modifier.weight(1f), color = GlassBorder)
+                    Text(
+                        text = "  or enter manually  ",
+                        color = TextSecondaryDark,
+                        fontSize = 11.sp
+                    )
+                    HorizontalDivider(modifier = Modifier.weight(1f), color = GlassBorder)
+                }
+
+                // Server URL input (with trailing QR icon button)
                 OutlinedTextField(
                     value = pairingUrl,
                     onValueChange = { viewModel.onPairingUrlChanged(it) },
                     label = { Text("Server Address", color = TextSecondaryDark) },
-                    placeholder = { Text("e.g. 10.0.2.2:61700", color = TextSecondaryDark) },
+                    placeholder = { Text("e.g. 192.168.1.100:51716", color = TextSecondaryDark) },
+                    trailingIcon = {
+                        IconButton(onClick = triggerUrlQrScan) {
+                            Icon(
+                                imageVector = Icons.Default.QrCodeScanner,
+                                contentDescription = "Scan QR",
+                                tint = AccentPurple
+                            )
+                        }
+                    },
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = PremiumWhite,
                         unfocusedTextColor = PremiumWhite,
@@ -192,12 +275,12 @@ fun PairingView(viewModel: MainScreenViewModel) {
                     )
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
-                // Action Connect Button
+                // Connect button
                 Button(
                     onClick = { viewModel.pairDevice() },
-                    colors = ButtonDefaults.buttonColors(containerColor = AccentPurple),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E3A5F)),
                     shape = RoundedCornerShape(30.dp),
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !isConnecting
@@ -217,6 +300,7 @@ fun PairingView(viewModel: MainScreenViewModel) {
         }
     }
 }
+
 
 // --- catalog view layout ---
 @Composable

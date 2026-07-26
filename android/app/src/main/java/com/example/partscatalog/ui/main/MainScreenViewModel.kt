@@ -127,6 +127,26 @@ class MainScreenViewModel(private val repository: PartsRepository) : ViewModel()
         }
     }
 
+    fun pairViaQrLogin(serverUrl: String, qrToken: String) {
+        viewModelScope.launch {
+            _isConnecting.value = true
+            _pairingError.value = null
+            val result = kotlinx.coroutines.withContext(Dispatchers.IO) {
+                repository.connectAndPairViaQrLogin(serverUrl, qrToken)
+            }
+            if (result.isSuccess) {
+                _isPaired.value = true
+                _password.value = ""
+                loadLocalCatalog()
+                startConnectionPolling()
+                triggerBackgroundSync()
+            } else {
+                _pairingError.value = result.exceptionOrNull()?.message ?: "QR login failed. Token may have expired."
+            }
+            _isConnecting.value = false
+        }
+    }
+
     fun unpairDevice() {
         connectionJob?.cancel()
         viewModelScope.launch(Dispatchers.IO) {
