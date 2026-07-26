@@ -123,6 +123,14 @@ function initDB() {
                  token TEXT
              )`);
 
+            db.run(`CREATE TABLE IF NOT EXISTS qr_login_tokens (
+                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                 token TEXT UNIQUE,
+                 user_id INTEGER,
+                 expires_at INTEGER,
+                 used INTEGER DEFAULT 0
+             )`);
+
             db.get("SELECT COUNT(*) AS count FROM users", (err, row) => {
                 if (row && row.count === 0) {
                     const hash = hashPassword('admin');
@@ -615,6 +623,48 @@ app.post('/api/logout', authenticate, (req, res) => {
     db.run("UPDATE users SET token = NULL WHERE id = ?", [req.user.id], () => {
         res.json({ success: true });
     });
+});
+
+// Generate a one-time QR login token (authenticated — admin generates this)
+app.post('/api/qr-login-token', authenticate, (req, res) => {
+    const qrToken = crypto.randomBytes(24).toString('hex');
+    const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes
+    db.run(
+        'INSERT INTO qr_login_tokens (token, user_id, expires_at) VALUES (?, ?, ?)',
+        [qrToken, req.user.id, expiresAt],
+        function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ qrToken, expiresAt });
+        }
+    );
+});
+
+// Redeem a QR login token to get a session auth token
+app.get('/api/qr-login', (req, res) => {
+    const { token: qrToken } = req.query;
+    if (!qrToken) return res.status(400).json({ error: 'Token required' });
+    const now = Date.now();
+    db.get(
+        'SELECT * FROM qr_login_tokens WHERE token = ? AND used = 0 AND expires_at > ?',
+        [qrToken, now],
+        (err, row) => {
+            if (err) return res.status(500).json({ error: err.message });
+            if (!row) return res.status(401).json({ error: 'Invalid or expired QR token' });
+
+            // Mark the QR token as used immediately
+            db.run('UPDATE qr_login_tokens SET used = 1 WHERE id = ?', [row.id]);
+
+            // Issue a new session token for the user
+            const sessionToken = crypto.randomBytes(32).toString('hex');
+            db.run('UPDATE users SET token = ? WHERE id = ?', [sessionToken, row.user_id], (err2) => {
+                if (err2) return res.status(500).json({ error: err2.message });
+                db.get('SELECT id, username FROM users WHERE id = ?', [row.user_id], (err3, user) => {
+                    if (err3 || !user) return res.status(500).json({ error: 'User not found' });
+                    res.json({ token: sessionToken, username: user.username });
+                });
+            });
+        }
+    );
 });
 
 app.get('/api/users/me', authenticate, (req, res) => res.json({ id: req.user.id, username: req.user.username }));
