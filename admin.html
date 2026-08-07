@@ -1037,24 +1037,40 @@
         const fullscreenToggle = document.getElementById('fullscreen-toggle');
         if (fullscreenToggle) {
             fullscreenToggle.addEventListener('click', () => {
-                if (!document.fullscreenElement) {
-                    document.documentElement.requestFullscreen().catch(err => {
-                        console.error(`Error attempting to enable full-screen mode: ${err.message}`);
-                    });
+                const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement;
+                if (!isFullscreen) {
+                    if (document.documentElement.requestFullscreen) {
+                        document.documentElement.requestFullscreen().catch(err => {
+                            console.error(`Error attempting to enable full-screen mode: ${err.message}`);
+                        });
+                    } else if (document.documentElement.webkitRequestFullscreen) {
+                        document.documentElement.webkitRequestFullscreen();
+                    } else if (document.documentElement.msRequestFullscreen) {
+                        document.documentElement.msRequestFullscreen();
+                    }
                 } else {
                     if (document.exitFullscreen) {
                         document.exitFullscreen();
+                    } else if (document.webkitExitFullscreen) {
+                        document.webkitExitFullscreen();
+                    } else if (document.msExitFullscreen) {
+                        document.msExitFullscreen();
                     }
                 }
             });
 
-            document.addEventListener('fullscreenchange', () => {
-                if (!document.fullscreenElement) {
+            const updateFullscreenIcon = () => {
+                const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement;
+                if (!isFullscreen) {
                     fullscreenToggle.innerHTML = '<i class="fa-solid fa-expand"></i>';
                 } else {
                     fullscreenToggle.innerHTML = '<i class="fa-solid fa-compress"></i>';
                 }
-            });
+            };
+
+            document.addEventListener('fullscreenchange', updateFullscreenIcon);
+            document.addEventListener('webkitfullscreenchange', updateFullscreenIcon);
+            document.addEventListener('MSFullscreenChange', updateFullscreenIcon);
         }
 
         // --- Connection Pairing Logic ---
